@@ -3,7 +3,7 @@ package com.buwin.tiktokvideodownload.ui.components.liquid
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.EaseOut
 import androidx.compose.animation.core.spring
-import androidx.compose.foundation.isSystemInDarkTheme
+import com.buwin.tiktokvideodownload.ui.theme.LocalIsDark
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Row
@@ -60,7 +60,7 @@ fun LiquidBottomTabs(
     onTabSelected: (index: Int) -> Unit,
     backdrop: Backdrop,
     tabsCount: Int,
-    isDark: Boolean = isSystemInDarkTheme(),
+    isDark: Boolean = LocalIsDark.current,
     modifier: Modifier = Modifier,
     content: @Composable RowScope.() -> Unit
 ) {

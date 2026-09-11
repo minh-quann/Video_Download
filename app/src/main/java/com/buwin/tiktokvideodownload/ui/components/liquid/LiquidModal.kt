@@ -8,7 +8,7 @@ import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.isSystemInDarkTheme
+import com.buwin.tiktokvideodownload.ui.theme.LocalIsDark
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -43,7 +43,7 @@ fun LiquidModal(
     cornerRadius: Dp = 32.dp,
     content: @Composable ColumnScope.() -> Unit
 ) {
-    val isLightTheme = !isSystemInDarkTheme()
+    val isLightTheme = !LocalIsDark.current
     val dimColor = if (isLightTheme) Color(0xFF1E293B).copy(alpha = 0.35f) else Color.Black.copy(alpha = 0.65f)
     val containerColor = if (isLightTheme) Color(0xFFFAFAFA).copy(alpha = 0.65f) else Color(0xFF18181B).copy(alpha = 0.55f)
 

@@ -1,7 +1,7 @@
 package com.buwin.tiktokvideodownload.ui.screens
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.isSystemInDarkTheme
+import com.buwin.tiktokvideodownload.ui.theme.LocalIsDark
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -58,7 +58,7 @@ fun HistoryScreen(
     modifier: Modifier = Modifier
 ) {
     var historyList by remember { mutableStateOf(downloadHelper.getHistory()) }
-    val isDark = isSystemInDarkTheme()
+    val isDark = LocalIsDark.current
 
     Column(
         modifier = modifier

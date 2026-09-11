@@ -13,7 +13,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
-import androidx.compose.foundation.isSystemInDarkTheme
+import com.buwin.tiktokvideodownload.ui.theme.LocalIsDark
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -74,7 +74,7 @@ fun LiquidFloatingWindow(
     onClose: () -> Unit,
     backdrop: Backdrop,
     modifier: Modifier = Modifier,
-    isDark: Boolean = isSystemInDarkTheme()
+    isDark: Boolean = LocalIsDark.current
 ) {
     val isLightTheme = !isDark
     val containerColor = if (isLightTheme) Color.White.copy(alpha = 0.80f) else Color(0xFF1E1E24).copy(alpha = 0.76f)

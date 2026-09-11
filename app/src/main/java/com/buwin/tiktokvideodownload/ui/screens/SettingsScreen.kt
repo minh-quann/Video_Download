@@ -1,12 +1,9 @@
 package com.buwin.tiktokvideodownload.ui.screens
 
 import android.widget.Toast
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -41,31 +38,28 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.buwin.tiktokvideodownload.data.download.DownloadManagerHelper
-import com.buwin.tiktokvideodownload.ui.components.liquid.LiquidFloatingWindow
 import com.buwin.tiktokvideodownload.ui.components.liquid.LiquidMenuItem
 import com.buwin.tiktokvideodownload.ui.components.liquid.LiquidOptionsMenu
 import com.buwin.tiktokvideodownload.ui.components.liquid.LiquidToggle
 import com.buwin.tiktokvideodownload.ui.theme.AppThemeMode
+import com.buwin.tiktokvideodownload.ui.theme.LocalIsDark
 import com.buwin.tiktokvideodownload.ui.theme.ThemePreferences
 import com.kyant.backdrop.Backdrop
 import io.github.alexzhirkevich.cupertino.icons.CupertinoIcons
-import io.github.alexzhirkevich.cupertino.icons.outlined.Checkmark
 import io.github.alexzhirkevich.cupertino.icons.outlined.ChevronForward
 import io.github.alexzhirkevich.cupertino.icons.outlined.Folder
 import io.github.alexzhirkevich.cupertino.icons.outlined.InfoCircle
 import io.github.alexzhirkevich.cupertino.icons.outlined.Iphone
 import io.github.alexzhirkevich.cupertino.icons.outlined.Paintpalette
-import io.github.alexzhirkevich.cupertino.icons.outlined.Pip
 import io.github.alexzhirkevich.cupertino.icons.outlined.Sparkles
 import io.github.alexzhirkevich.cupertino.icons.outlined.Trash
 
 /**
  * Minimalist Apple-style Settings Screen matching user specification:
- * - Simple, clean sections with sentence-case titles (no colorful headers).
- * - Clean white/dark cards with 26dp rounded corners.
- * - Monochrome outline icons without loud background squares.
- * - Simple row layout with subtle dividers and trailing chevrons.
- * - Seamless integration with Liquid Options Menu & Liquid Floating Window.
+ * - Simple clean sections with sentence-case titles.
+ * - 26dp rounded corner cards.
+ * - Morphing Liquid Glass More Button (...) on the header that smoothly expands in place.
+ * - Seamless integration with Liquid Options Menu & Liquid Toggle.
  */
 @Composable
 fun SettingsScreen(
@@ -75,11 +69,11 @@ fun SettingsScreen(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    val isDark = isSystemInDarkTheme()
+    val isDark = LocalIsDark.current
 
-    // State for Floating Window & Options Menu
-    var showFloatingWindow by remember { mutableStateOf(false) }
+    // State for Options Menu & Auto-paste toggle
     var showThemeOptionsMenu by remember { mutableStateOf(false) }
+    var autoPasteEnabled by remember { mutableStateOf(true) }
 
     // Card styling
     val cardBackground = if (isDark) Color(0xFF1C1C1E) else Color.White
@@ -87,7 +81,7 @@ fun SettingsScreen(
     val dividerColor = if (isDark) Color(0xFF2C2C2E) else Color(0xFFF2F2F7)
     val chevronColor = if (isDark) Color(0xFF636366) else Color(0xFFC7C7CC)
 
-    // Items for Liquid Options Menu
+    // Items for Liquid Options Menu (Theme selection)
     val themeMenuItems = remember(themePreferences.currentThemeMode) {
         listOf(
             LiquidMenuItem(
@@ -124,10 +118,10 @@ fun SettingsScreen(
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 16.dp, vertical = 16.dp)
         ) {
-            // Screen Title
+            // Header: Title
             Text(
                 text = "Cài đặt",
-                fontSize = 24.sp,
+                fontSize = 28.sp,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onBackground,
                 modifier = Modifier.padding(start = 4.dp, top = 8.dp, bottom = 18.dp)
@@ -146,57 +140,44 @@ fun SettingsScreen(
                 colors = CardDefaults.cardColors(containerColor = cardBackground),
                 border = BorderStroke(1.dp, cardBorderColor)
             ) {
-                Column {
-                    // Row: Floating Window switch
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
                     Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 14.dp),
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
+                        modifier = Modifier
+                            .weight(1f)
+                            .clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = null
+                            ) {
+                                autoPasteEnabled = !autoPasteEnabled
+                            }
                     ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Icon(
-                                imageVector = CupertinoIcons.Outlined.Pip,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onSurface,
-                                modifier = Modifier.size(22.dp)
-                            )
-                            Spacer(modifier = Modifier.width(14.dp))
-                            Text(
-                                text = "Cửa sổ nổi Mini (PiP)",
-                                fontSize = 15.sp,
-                                fontWeight = FontWeight.Normal,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                        }
-
-                        LiquidToggle(
-                            checked = showFloatingWindow,
-                            onCheckedChange = { showFloatingWindow = it },
-                            backdrop = backdrop
+                        Icon(
+                            imageVector = CupertinoIcons.Outlined.Sparkles,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.size(22.dp)
+                        )
+                        Spacer(modifier = Modifier.width(14.dp))
+                        Text(
+                            text = "Tự động nhận diện link",
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Normal,
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                     }
 
-                    // Floating window inline display
-                    AnimatedVisibility(
-                        visible = showFloatingWindow,
-                        enter = fadeIn(),
-                        exit = fadeOut()
-                    ) {
-                        Column(modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp)) {
-                            HorizontalDivider(color = dividerColor, thickness = 0.8.dp)
-                            Spacer(modifier = Modifier.height(14.dp))
-                            LiquidFloatingWindow(
-                                visible = true,
-                                onClose = { showFloatingWindow = false },
-                                backdrop = backdrop
-                            )
-                        }
-                    }
+                    LiquidToggle(
+                        checked = autoPasteEnabled,
+                        onCheckedChange = { autoPasteEnabled = it },
+                        backdrop = backdrop
+                    )
                 }
             }
 

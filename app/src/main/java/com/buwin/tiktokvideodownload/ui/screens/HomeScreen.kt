@@ -6,7 +6,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.isSystemInDarkTheme
+import com.buwin.tiktokvideodownload.ui.theme.LocalIsDark
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -81,7 +81,7 @@ fun HomeScreen(
     val context = LocalContext.current
     val clipboardManager = LocalClipboardManager.current
     val scope = rememberCoroutineScope()
-    val isDark = isSystemInDarkTheme()
+    val isDark = LocalIsDark.current
 
     var inputUrl by remember { mutableStateOf(sharedUrl ?: "") }
     var isLoading by remember { mutableStateOf(false) }
@@ -391,7 +391,7 @@ private fun DownloadOptionItem(
     backdrop: Backdrop,
     onDownloadClick: () -> Unit
 ) {
-    val isDark = isSystemInDarkTheme()
+    val isDark = LocalIsDark.current
     val (icon, badgeColor) = when (option.type) {
         DownloadFormatType.VIDEO_HD_NO_WATERMARK -> Pair(CupertinoIcons.Filled.Film, Color(0xFF10B981))
         DownloadFormatType.VIDEO_SD_NO_WATERMARK -> Pair(CupertinoIcons.Filled.Video, Color(0xFF3B82F6))

@@ -1,6 +1,6 @@
 package com.buwin.tiktokvideodownload.ui.components.liquid
 
-import androidx.compose.foundation.isSystemInDarkTheme
+import com.buwin.tiktokvideodownload.ui.theme.LocalIsDark
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
@@ -10,6 +10,7 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
@@ -53,7 +54,7 @@ fun LiquidToggle(
     backdrop: Backdrop,
     modifier: Modifier = Modifier
 ) {
-    val isLightTheme = !isSystemInDarkTheme()
+    val isLightTheme = !LocalIsDark.current
     val accentColor =
         if (isLightTheme) Color(0xFF34C759)
         else Color(0xFF30D158)
@@ -61,11 +62,15 @@ fun LiquidToggle(
         if (isLightTheme) Color(0xFF787878).copy(0.2f)
         else Color(0xFF787880).copy(0.36f)
 
+    val currentSelected by rememberUpdatedState(selected)
+    val currentOnSelect by rememberUpdatedState(onSelect)
+
     val density = LocalDensity.current
     val isLtr = LocalLayoutDirection.current == LayoutDirection.Ltr
     val dragWidth = with(density) { 20f.dp.toPx() }
+    val touchSlop = with(density) { 4f.dp.toPx() }
     val animationScope = rememberCoroutineScope()
-    var didDrag by remember { mutableStateOf(false) }
+    var totalDragDistance by remember { mutableFloatStateOf(0f) }
     var fraction by remember { mutableFloatStateOf(if (selected()) 1f else 0f) }
     val dampedDragAnimation = remember(animationScope) {
         DampedDragAnimation(
@@ -75,21 +80,24 @@ fun LiquidToggle(
             visibilityThreshold = 0.001f,
             initialScale = 1f,
             pressedScale = 1.5f,
-            onDragStarted = {},
+            onDragStarted = {
+                totalDragDistance = 0f
+            },
             onDragStopped = {
-                if (didDrag) {
-                    fraction = if (targetValue >= 0.5f) 1f else 0f
-                    onSelect(fraction == 1f)
-                    didDrag = false
+                if (totalDragDistance > touchSlop) {
+                    val target = if (targetValue >= 0.5f) 1f else 0f
+                    fraction = target
+                    currentOnSelect(target == 1f)
                 } else {
-                    fraction = if (selected()) 0f else 1f
-                    onSelect(fraction == 1f)
+                    val next = !currentSelected()
+                    val target = if (next) 1f else 0f
+                    fraction = target
+                    currentOnSelect(next)
                 }
+                totalDragDistance = 0f
             },
             onDrag = { _, dragAmount ->
-                if (!didDrag) {
-                    didDrag = dragAmount.x != 0f
-                }
+                totalDragDistance += kotlin.math.abs(dragAmount.x)
                 val delta = dragAmount.x / dragWidth
                 fraction =
                     if (isLtr) (fraction + delta).fastCoerceIn(0f, 1f)
@@ -103,21 +111,21 @@ fun LiquidToggle(
                 dampedDragAnimation.updateValue(fraction)
             }
     }
-    LaunchedEffect(selected) {
-        snapshotFlow { selected() }
-            .collectLatest { isSelected ->
-                val target = if (isSelected) 1f else 0f
-                if (target != fraction) {
-                    fraction = target
-                    dampedDragAnimation.animateToValue(target)
-                }
-            }
+    val isSelected = currentSelected()
+    LaunchedEffect(isSelected) {
+        val target = if (isSelected) 1f else 0f
+        fraction = target
+        dampedDragAnimation.animateToValue(target)
     }
 
     val trackBackdrop = rememberLayerBackdrop()
 
     Box(
-        modifier,
+        modifier = modifier
+            .semantics {
+                role = Role.Switch
+            }
+            .then(dampedDragAnimation.modifier),
         contentAlignment = Alignment.CenterStart
     ) {
         Box(
@@ -140,10 +148,6 @@ fun LiquidToggle(
                         if (isLtr) lerp(padding, padding + dragWidth, fraction)
                         else lerp(-padding, -(padding + dragWidth), fraction)
                 }
-                .semantics {
-                    role = Role.Switch
-                }
-                .then(dampedDragAnimation.modifier)
                 .drawBackdrop(
                     backdrop = rememberCombinedBackdrop(
                         backdrop,
