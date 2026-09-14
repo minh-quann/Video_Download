@@ -38,6 +38,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.buwin.tiktokvideodownload.data.download.DownloadManagerHelper
+import com.buwin.tiktokvideodownload.ui.components.dialog.AppConfirmationModal
 import com.buwin.tiktokvideodownload.ui.components.liquid.LiquidMenuItem
 import com.buwin.tiktokvideodownload.ui.components.liquid.LiquidOptionsMenu
 import com.buwin.tiktokvideodownload.ui.components.liquid.LiquidToggle
@@ -75,6 +76,7 @@ fun SettingsScreen(
 
     // State for Options Menu & Auto-paste toggle
     var showThemeOptionsMenu by remember { mutableStateOf(false) }
+    var showClearHistoryConfirm by remember { mutableStateOf(false) }
     var autoPasteEnabled by remember { mutableStateOf(true) }
 
     // Card styling
@@ -241,8 +243,7 @@ fun SettingsScreen(
                         title = "Xóa lịch sử tải về",
                         chevronColor = chevronColor,
                         onClick = {
-                            downloadHelper.clearHistory()
-                            AppToast.showSuccess("Đã xóa lịch sử", "Toàn bộ lịch sử tải về đã được xóa sạch")
+                            showClearHistoryConfirm = true
                         }
                     )
                 }
@@ -309,6 +310,24 @@ fun SettingsScreen(
             title = "Chọn giao diện",
             items = themeMenuItems,
             backdrop = backdrop
+        )
+
+        // Confirmation Modal for Clearing Download History
+        AppConfirmationModal(
+            visible = showClearHistoryConfirm,
+            onDismissRequest = { showClearHistoryConfirm = false },
+            title = "Xóa toàn bộ lịch sử?",
+            message = "Tất cả các bản ghi tải về trong danh sách lịch sử sẽ bị xóa. Các tệp đã tải trong máy vẫn được giữ nguyên.",
+            confirmText = "Xóa lịch sử",
+            cancelText = "Hủy",
+            isDestructive = true,
+            backdrop = backdrop,
+            isDark = isDark,
+            onConfirm = {
+                downloadHelper.clearHistory()
+                showClearHistoryConfirm = false
+                AppToast.showSuccess("Đã xóa lịch sử", "Toàn bộ lịch sử tải về đã được dọn sạch")
+            }
         )
     }
 }

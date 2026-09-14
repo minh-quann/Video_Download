@@ -1,6 +1,7 @@
 package com.buwin.tiktokvideodownload.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -61,11 +62,17 @@ import java.util.Locale
 fun HistoryScreen(
     backdrop: Backdrop,
     downloadHelper: DownloadManagerHelper,
+    onPlayRecord: (DownloadRecord) -> Unit,
     modifier: Modifier = Modifier
 ) {
     var historyList by remember { mutableStateOf(downloadHelper.getHistory()) }
     val isDark = LocalIsDark.current
     val contentBackdrop = rememberLayerBackdrop()
+
+    // Refresh history list whenever screen becomes active
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        historyList = downloadHelper.getHistory()
+    }
 
     Box(modifier = modifier.fillMaxSize()) {
         if (historyList.isEmpty()) {
@@ -106,7 +113,7 @@ fun HistoryScreen(
                     HistoryItemCard(
                         record = item,
                         backdrop = backdrop,
-                        onOpen = { downloadHelper.openDownloadsFolder() }
+                        onOpen = { onPlayRecord(item) }
                     )
                 }
                 item {
@@ -177,7 +184,9 @@ private fun HistoryItemCard(
     }
 
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onOpen() },
         shape = RoundedCornerShape(18.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)

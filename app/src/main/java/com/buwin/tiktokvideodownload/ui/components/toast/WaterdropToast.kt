@@ -91,7 +91,9 @@ private val CIRCLE_SIZE = 48.dp
 @Composable
 fun WaterdropToast(
     isDark: Boolean,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onClick: ((ToastState) -> Unit)? = null,
+    onCancelDownload: ((Long) -> Unit)? = null
 ) {
     val toastState by AppToast.state.collectAsState()
     val haptic = LocalHapticFeedback.current
@@ -237,7 +239,7 @@ fun WaterdropToast(
                     detectVerticalDragGestures(
                         onDragEnd = {
                             if (dragY.value < -15f) {
-                                // Real swipe-up momentum dismiss
+                                // Real swipe-up momentum dismiss (hides toast while download continues)
                                 coroutineScope.launch {
                                     launch {
                                         dragY.animateTo(
@@ -276,6 +278,12 @@ fun WaterdropToast(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null
+                    ) {
+                        onClick?.invoke(currentDisplayState)
+                    }
                     .padding(vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -483,13 +491,18 @@ fun WaterdropToast(
                         // Close Button matching MEBIECO
                         Box(
                             modifier = Modifier
-                                .padding(start = 8.dp)
-                                .size(24.dp)
+                                .padding(start = 4.dp, end = 2.dp)
+                                .size(36.dp)
                                 .clickable(
                                     interactionSource = remember { MutableInteractionSource() },
                                     indication = null
                                 ) {
-                                    startExitAnimation()
+                                    if (currentDisplayState.type == ToastType.PROGRESS && currentDisplayState.downloadId > 0) {
+                                        // Request confirmation before cancelling download
+                                        onCancelDownload?.invoke(currentDisplayState.downloadId)
+                                    } else {
+                                        startExitAnimation()
+                                    }
                                 },
                             contentAlignment = Alignment.Center
                         ) {
@@ -497,7 +510,7 @@ fun WaterdropToast(
                                 imageVector = CupertinoIcons.Outlined.Xmark,
                                 contentDescription = "Close",
                                 tint = if (isDark) Color(0xFF9CA3AF) else Color(0xFF6B7280),
-                                modifier = Modifier.size(16.dp)
+                                modifier = Modifier.size(18.dp)
                             )
                         }
                     }

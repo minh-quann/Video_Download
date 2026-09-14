@@ -175,6 +175,22 @@ class FacebookService {
                     )
                 }
 
+                // 3. Audio MP3 option extracted from available video streams
+                // ponytail: Facebook serves AAC audio tracks in progressive MP4 streams; using SD stream saves bandwidth
+                val audioUrl = sdUrl ?: hdUrl
+                if (!audioUrl.isNullOrEmpty()) {
+                    options.add(
+                        DownloadOption(
+                            type = DownloadFormatType.AUDIO_MP3,
+                            title = "Âm Thanh MP3",
+                            description = "Tách riêng âm thanh từ video",
+                            downloadUrl = audioUrl,
+                            fileExtension = "mp3",
+                            mimeType = "audio/mpeg"
+                        )
+                    )
+                }
+
                 Result.success(
                     TikTokVideoInfo(
                         id = id,
@@ -231,39 +247,50 @@ class FacebookService {
                 val options = mutableListOf<DownloadOption>()
 
                 val hdObj = videosObj.optJSONObject("hd")
-                if (hdObj != null) {
-                    val hdUrl = hdObj.optString("url")
+                val hdUrl = hdObj?.optString("url")?.takeIf { it.startsWith("http://") || it.startsWith("https://") }
+                if (hdObj != null && hdUrl != null) {
                     val hdSize = hdObj.optString("size", "")
-                    if (hdUrl.isNotEmpty()) {
-                        options.add(
-                            DownloadOption(
-                                type = DownloadFormatType.VIDEO_HD_NO_WATERMARK,
-                                title = "Video Facebook HD",
-                                description = if (hdSize.isNotEmpty()) "Chất lượng cao HD ($hdSize)" else "Chất lượng cao nhất (HD)",
-                                downloadUrl = hdUrl,
-                                fileExtension = "mp4",
-                                mimeType = "video/mp4"
-                            )
+                    options.add(
+                        DownloadOption(
+                            type = DownloadFormatType.VIDEO_HD_NO_WATERMARK,
+                            title = "Video Facebook HD",
+                            description = if (hdSize.isNotEmpty()) "Chất lượng cao HD ($hdSize)" else "Chất lượng cao nhất (HD)",
+                            downloadUrl = hdUrl,
+                            fileExtension = "mp4",
+                            mimeType = "video/mp4"
                         )
-                    }
+                    )
                 }
 
                 val sdObj = videosObj.optJSONObject("sd")
-                if (sdObj != null) {
-                    val sdUrl = sdObj.optString("url")
+                val sdUrl = sdObj?.optString("url")?.takeIf { it.startsWith("http://") || it.startsWith("https://") }
+                if (sdObj != null && sdUrl != null) {
                     val sdSize = sdObj.optString("size", "")
-                    if (sdUrl.isNotEmpty()) {
-                        options.add(
-                            DownloadOption(
-                                type = DownloadFormatType.VIDEO_SD_NO_WATERMARK,
-                                title = "Video Facebook SD",
-                                description = if (sdSize.isNotEmpty()) "Chất lượng chuẩn SD ($sdSize)" else "Chất lượng chuẩn (SD)",
-                                downloadUrl = sdUrl,
-                                fileExtension = "mp4",
-                                mimeType = "video/mp4"
-                            )
+                    options.add(
+                        DownloadOption(
+                            type = DownloadFormatType.VIDEO_SD_NO_WATERMARK,
+                            title = "Video Facebook SD",
+                            description = if (sdSize.isNotEmpty()) "Chất lượng chuẩn SD ($sdSize)" else "Chất lượng chuẩn (SD)",
+                            downloadUrl = sdUrl,
+                            fileExtension = "mp4",
+                            mimeType = "video/mp4"
                         )
-                    }
+                    )
+                }
+
+                // 3. Audio MP3 option extracted from available video streams
+                val audioUrl = sdUrl ?: hdUrl
+                if (!audioUrl.isNullOrEmpty()) {
+                    options.add(
+                        DownloadOption(
+                            type = DownloadFormatType.AUDIO_MP3,
+                            title = "Âm Thanh MP3",
+                            description = "Tách riêng âm thanh từ video",
+                            downloadUrl = audioUrl,
+                            fileExtension = "mp3",
+                            mimeType = "audio/mpeg"
+                        )
+                    )
                 }
 
                 if (options.isEmpty()) {

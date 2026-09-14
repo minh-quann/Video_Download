@@ -22,7 +22,8 @@ data class ToastState(
     val timestamp: Long = System.currentTimeMillis(),
     val downloadedBytes: Long = 0L,
     val totalBytes: Long = 0L,
-    val speedBytesPerSec: Long = 0L
+    val speedBytesPerSec: Long = 0L,
+    val downloadId: Long = -1L
 )
 
 /**
@@ -39,7 +40,8 @@ object AppToast {
         progress: Int = -1,
         downloadedBytes: Long = 0L,
         totalBytes: Long = 0L,
-        speedBytesPerSec: Long = 0L
+        speedBytesPerSec: Long = 0L,
+        downloadId: Long = -1L
     ) {
         _state.value = ToastState(
             isVisible = true,
@@ -51,11 +53,17 @@ object AppToast {
             timestamp = System.currentTimeMillis(),
             downloadedBytes = downloadedBytes,
             totalBytes = totalBytes,
-            speedBytesPerSec = speedBytesPerSec
+            speedBytesPerSec = speedBytesPerSec,
+            downloadId = downloadId
         )
     }
 
-    fun showSuccess(title: String, message: String? = null, durationMs: Long = 3500L) {
+    fun showSuccess(
+        title: String,
+        message: String? = null,
+        durationMs: Long = 4500L,
+        downloadId: Long = -1L
+    ) {
         _state.value = ToastState(
             isVisible = true,
             type = ToastType.SUCCESS,
@@ -63,7 +71,8 @@ object AppToast {
             message = message,
             progress = 100,
             durationMs = durationMs,
-            timestamp = System.currentTimeMillis()
+            timestamp = System.currentTimeMillis(),
+            downloadId = downloadId
         )
     }
 

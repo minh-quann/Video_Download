@@ -49,6 +49,10 @@ import com.buwin.tiktokvideodownload.ui.theme.BackgroundLight
 import com.buwin.tiktokvideodownload.ui.theme.ThemePreferences
 import com.buwin.tiktokvideodownload.ui.theme.TiktokVideoDownloadTheme
 import android.os.Build
+import com.buwin.tiktokvideodownload.data.model.DownloadRecord
+import com.buwin.tiktokvideodownload.ui.components.player.InAppVideoPlayerModal
+import com.buwin.tiktokvideodownload.ui.components.dialog.AppConfirmationModal
+import com.buwin.tiktokvideodownload.ui.components.toast.AppToast
 import com.buwin.tiktokvideodownload.ui.components.toast.WaterdropToast
 import com.kyant.backdrop.backdrops.layerBackdrop
 import com.kyant.backdrop.backdrops.rememberLayerBackdrop
@@ -115,6 +119,8 @@ fun MainApp(
     val screenBackdrop = rememberLayerBackdrop()
     val localBackdrop = rememberLayerBackdrop()
     var selectedTab by remember { mutableIntStateOf(0) }
+    var activePlayingRecord by remember { mutableStateOf<DownloadRecord?>(null) }
+    var pendingCancelDownloadId by remember { mutableStateOf<Long?>(null) }
 
     // Preserve HomeScreen state when switching tabs
     var homeInputUrl by remember { mutableStateOf(sharedUrl ?: "") }
@@ -155,7 +161,10 @@ fun MainApp(
                 )
                 1 -> HistoryScreen(
                     backdrop = localBackdrop,
-                    downloadHelper = downloadHelper
+                    downloadHelper = downloadHelper,
+                    onPlayRecord = { record ->
+                        activePlayingRecord = record
+                    }
                 )
                 2 -> SettingsScreen(
                     backdrop = localBackdrop,
@@ -243,7 +252,51 @@ fun MainApp(
         // Authentic iOS Waterdrop Dynamic Island Toast floating over entire app
         WaterdropToast(
             isDark = isDark,
-            modifier = Modifier.align(Alignment.TopCenter)
+            modifier = Modifier.align(Alignment.TopCenter),
+            onClick = { state ->
+                selectedTab = 1
+                val records = downloadHelper.getHistory()
+                val targetRecord = if (state.downloadId > 0) {
+                    records.firstOrNull { it.downloadId == state.downloadId } ?: records.firstOrNull()
+                } else {
+                    records.firstOrNull()
+                }
+                if (targetRecord != null) {
+                    activePlayingRecord = targetRecord
+                }
+            },
+            onCancelDownload = { downloadId ->
+                pendingCancelDownloadId = downloadId
+            }
         )
+
+        // Universal Confirmation Modal for Cancelling Download
+        AppConfirmationModal(
+            visible = pendingCancelDownloadId != null,
+            onDismissRequest = { pendingCancelDownloadId = null },
+            title = "Hủy tải xuống?",
+            message = "Bạn có chắc chắn muốn hủy quá trình tải tệp này không? Tiến trình hiện tại sẽ bị xóa.",
+            confirmText = "Hủy tải",
+            cancelText = "Tiếp tục tải",
+            isDestructive = true,
+            backdrop = screenBackdrop,
+            isDark = isDark,
+            onConfirm = {
+                pendingCancelDownloadId?.let { id ->
+                    downloadHelper.cancelDownload(id)
+                    AppToast.hide()
+                }
+                pendingCancelDownloadId = null
+            }
+        )
+
+        // In-App Video & Audio Player Modal
+        activePlayingRecord?.let { record ->
+            InAppVideoPlayerModal(
+                record = record,
+                downloadHelper = downloadHelper,
+                onDismiss = { activePlayingRecord = null }
+            )
+        }
     }
 }
