@@ -12,6 +12,10 @@ import androidx.compose.ui.input.pointer.changedToUpIgnoreConsumed
 import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.util.fastFirstOrNull
 
+/**
+ * Custom drag gesture inspector allowing concurrent inspection across multiple modifiers
+ * without prematurely cancelling drag events when consumed by sibling highlight modifiers.
+ */
 suspend fun PointerInputScope.inspectDragGestures(
     onDragStart: (down: PointerInputChange) -> Unit = {},
     onDragEnd: (change: PointerInputChange) -> Unit = {},
@@ -19,22 +23,19 @@ suspend fun PointerInputScope.inspectDragGestures(
     onDrag: (change: PointerInputChange, dragAmount: Offset) -> Unit
 ) {
     awaitEachGesture {
+        val initialDown = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
         val down = awaitFirstDown(requireUnconsumed = false)
-        down.consume()
+
         onDragStart(down)
-        onDrag(down, Offset.Zero)
+        onDrag(initialDown, Offset.Zero)
         val upEvent =
             drag(
-                pointerId = down.id,
-                onDrag = {
-                    it.consume()
-                    onDrag(it, it.positionChange())
-                }
+                pointerId = initialDown.id,
+                onDrag = { onDrag(it, it.positionChange()) }
             )
         if (upEvent == null) {
             onDragCancel()
         } else {
-            upEvent.consume()
             onDragEnd(upEvent)
         }
     }
@@ -44,18 +45,15 @@ private suspend inline fun AwaitPointerEventScope.drag(
     pointerId: PointerId,
     onDrag: (PointerInputChange) -> Unit
 ): PointerInputChange? {
-    val pointerChange = currentEvent.changes.fastFirstOrNull { it.id == pointerId }
-    if (pointerChange?.pressed != true) {
-        return if (pointerChange?.changedToUpIgnoreConsumed() == true) pointerChange else null
+    val isPointerUp = currentEvent.changes.fastFirstOrNull { it.id == pointerId }?.pressed != true
+    if (isPointerUp) {
+        return null
     }
     var pointer = pointerId
     while (true) {
         val change = awaitDragOrUp(pointer) ?: return null
         if (change.changedToUpIgnoreConsumed()) {
             return change
-        }
-        if (change.isConsumed) {
-            return null
         }
         onDrag(change)
         pointer = change.id

@@ -112,9 +112,6 @@ fun LiquidSearchBar(
     val searchBarInteractionSource = remember { MutableInteractionSource() }
     val isPressed by searchBarInteractionSource.collectIsPressedAsState()
 
-    val cancelInteractionSource = remember { MutableInteractionSource() }
-    val isCancelPressed by cancelInteractionSource.collectIsPressedAsState()
-
     val pasteInteractionSource = remember { MutableInteractionSource() }
     val isPastePressed by pasteInteractionSource.collectIsPressedAsState()
 
@@ -141,12 +138,6 @@ fun LiquidSearchBar(
         label = "searchBarScale"
     )
 
-    val cancelScale by animateFloatAsState(
-        targetValue = if (isCancelPressed) 0.94f else 1f,
-        animationSpec = springFloatSpec,
-        label = "cancelScale"
-    )
-
     val pasteScale by animateFloatAsState(
         targetValue = if (isPastePressed) 0.93f else 1f,
         animationSpec = springFloatSpec,
@@ -158,14 +149,6 @@ fun LiquidSearchBar(
         animationSpec = springFloatSpec,
         label = "downloadScale"
     )
-
-    fun handleCancel() {
-        isEditing = false
-        focusManager.clearFocus()
-        if (value.isNotEmpty()) {
-            onValueChange("")
-        }
-    }
 
     Row(
         modifier = modifier.fillMaxWidth(),
@@ -349,51 +332,11 @@ fun LiquidSearchBar(
                     )
                 }
             }
-
-            // Primary Download Action Trigger Button
-            Box(
-                modifier = Modifier
-                    .size(38.dp)
-                    .graphicsLayer {
-                        scaleX = downloadScale
-                        scaleY = downloadScale
-                    }
-                    .clip(CircleShape)
-                    .background(
-                        if (value.isNotEmpty() || isLoading) accentColor
-                        else accentColor.copy(alpha = if (isLightTheme) 0.16f else 0.26f)
-                    )
-                    .clickable(
-                        interactionSource = downloadInteractionSource,
-                        indication = null,
-                        enabled = !isLoading,
-                        role = Role.Button
-                    ) {
-                        focusManager.clearFocus()
-                        onSearch()
-                    },
-                contentAlignment = Alignment.Center
-            ) {
-                if (isLoading) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(18.dp),
-                        color = Color.White,
-                        strokeWidth = 2.2.dp
-                    )
-                } else {
-                    Icon(
-                        imageVector = CupertinoIcons.Outlined.ArrowDownToLine,
-                        contentDescription = "Bắt đầu tải",
-                        tint = if (value.isNotEmpty()) Color.White else accentColor,
-                        modifier = Modifier.size(18.dp)
-                    )
-                }
-            }
         }
 
-        // ── 2. Detached Liquid Glass Cancel Pill (Smooth continuous width expansion + slide) ──
+        // ── 2. Detached Liquid Glass Download Action Pill (Replaces Cancel button) ──
         AnimatedVisibility(
-            visible = isEditing,
+            visible = value.isNotEmpty() || isEditing,
             enter = expandHorizontally(
                 animationSpec = springIntSizeSpec,
                 expandFrom = Alignment.End
@@ -412,12 +355,15 @@ fun LiquidSearchBar(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Spacer(modifier = Modifier.width(8.dp))
 
+                val buttonBgColor = if (value.isNotEmpty() || isLoading) accentColor else containerColor
+                val buttonTextColor = if (value.isNotEmpty() || isLoading) Color.White else accentColor
+
                 Box(
                     modifier = Modifier
                         .height(50.dp)
                         .graphicsLayer {
-                            scaleX = cancelScale
-                            scaleY = cancelScale
+                            scaleX = downloadScale
+                            scaleY = downloadScale
                         }
                         .drawBackdrop(
                             backdrop = backdrop,
@@ -435,30 +381,53 @@ fun LiquidSearchBar(
                             shadow = {
                                 Shadow(
                                     radius = 8f.dp,
-                                    color = if (isLightTheme) Color.Black.copy(alpha = 0.05f) else Color.Black.copy(alpha = 0.3f)
+                                    color = if (isLightTheme) Color.Black.copy(alpha = 0.08f) else Color.Black.copy(alpha = 0.35f)
                                 )
                             },
-                            onDrawSurface = { drawRect(containerColor) }
+                            onDrawSurface = { drawRect(buttonBgColor) }
                         )
                         .clickable(
-                            interactionSource = cancelInteractionSource,
+                            interactionSource = downloadInteractionSource,
                             indication = null,
+                            enabled = !isLoading,
                             role = Role.Button
                         ) {
-                            handleCancel()
+                            focusManager.clearFocus()
+                            if (value.isNotEmpty()) {
+                                onSearch()
+                            }
                         }
                         .padding(horizontal = 14.dp),
                     contentAlignment = Alignment.Center
                 ) {
-                    BasicText(
-                        text = "Hủy",
-                        style = TextStyle(
-                            color = accentColor,
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            platformStyle = PlatformTextStyle(includeFontPadding = false)
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        if (isLoading) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(16.dp),
+                                color = buttonTextColor,
+                                strokeWidth = 2.dp
+                            )
+                        } else {
+                            Icon(
+                                imageVector = CupertinoIcons.Outlined.ArrowDownToLine,
+                                contentDescription = "Tải xuống",
+                                tint = buttonTextColor,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                        BasicText(
+                            text = if (isLoading) "Đang tải..." else "Tải xuống",
+                            style = TextStyle(
+                                color = buttonTextColor,
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                platformStyle = PlatformTextStyle(includeFontPadding = false)
+                            )
                         )
-                    )
+                    }
                 }
             }
         }

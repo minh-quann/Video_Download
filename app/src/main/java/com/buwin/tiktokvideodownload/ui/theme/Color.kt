@@ -7,7 +7,7 @@ val PrimaryBlue = Color(0xFF007AFF)
 val PrimaryBlueDark = Color(0xFF0A84FF)
 
 // Light Palette (Warm neutral / Stone)
-val BackgroundLight = Color(0xFFFAFAF9) // #FAFAF9 as requested
+val BackgroundLight = Color(0xFFFAFAF9) 
 val SurfaceLight = Color(0xFFFFFFFF)
 val SurfaceVariantLight = Color(0xFFF5F5F4)
 val TextPrimaryLight = Color(0xFF1C1917)

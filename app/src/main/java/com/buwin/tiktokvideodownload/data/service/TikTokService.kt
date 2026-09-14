@@ -24,7 +24,7 @@ class TikTokService {
         .followRedirects(true)
         .build()
 
-    private val urlPattern = Pattern.compile("https?://[a-zA-Z0-9./?=_%&+-]+")
+    private val urlPattern = Pattern.compile("https?://[^\\s<>\"'\\[\\]{}|\\\\^`]+")
 
     /**
      * Extracts a valid URL from freeform text (such as clipboard content or share intent).
@@ -32,7 +32,7 @@ class TikTokService {
     fun extractUrl(text: String): String? {
         val matcher = urlPattern.matcher(text)
         while (matcher.find()) {
-            val url = matcher.group()
+            val url = matcher.group().trimEnd('.', ',', ';', '!', '?', ')', ']', '"', '\'')
             if (url.contains("tiktok.com") || url.contains("douyin.com")) {
                 return url
             }
@@ -83,13 +83,15 @@ class TikTokService {
                 val data = json.getJSONObject("data")
                 val id = data.optString("id", System.currentTimeMillis().toString())
                 val title = data.optString("title", "TikTok Video $id")
-                val cover = data.optString("cover", "")
+                val originCover = data.optString("origin_cover", "")
+                val rawCover = data.optString("cover", "")
+                val cover = normalizeMediaUrl(originCover.ifEmpty { rawCover })
                 val duration = data.optInt("duration", 0)
 
                 val authorObj = data.optJSONObject("author")
                 val authorUsername = authorObj?.optString("unique_id", "TikTok User") ?: "TikTok User"
                 val authorNickname = authorObj?.optString("nickname", authorUsername) ?: authorUsername
-                val authorAvatar = authorObj?.optString("avatar", "") ?: ""
+                val authorAvatar = normalizeMediaUrl(authorObj?.optString("avatar", "") ?: "")
 
                 val diggCount = data.optLong("digg_count", 0L)
                 val commentCount = data.optLong("comment_count", 0L)
@@ -105,7 +107,7 @@ class TikTokService {
                             type = DownloadFormatType.VIDEO_HD_NO_WATERMARK,
                             title = "Video HD Không Logo",
                             description = "Độ phân giải cao nhất (1080p / 720p HD)",
-                            downloadUrl = if (hdPlay.startsWith("http")) hdPlay else "https://www.tikwm.com$hdPlay",
+                            downloadUrl = normalizeMediaUrl(hdPlay),
                             fileExtension = "mp4",
                             mimeType = "video/mp4"
                         )
@@ -120,7 +122,7 @@ class TikTokService {
                             type = DownloadFormatType.VIDEO_SD_NO_WATERMARK,
                             title = "Video Chuẩn Không Logo",
                             description = "Dung lượng nhẹ, tải nhanh hơn",
-                            downloadUrl = if (play.startsWith("http")) play else "https://www.tikwm.com$play",
+                            downloadUrl = normalizeMediaUrl(play),
                             fileExtension = "mp4",
                             mimeType = "video/mp4"
                         )
@@ -135,7 +137,7 @@ class TikTokService {
                             type = DownloadFormatType.VIDEO_WATERMARK,
                             title = "Video Kèm Watermark",
                             description = "Bản gốc có logo TikTok và ID tác giả",
-                            downloadUrl = if (wmPlay.startsWith("http")) wmPlay else "https://www.tikwm.com$wmPlay",
+                            downloadUrl = normalizeMediaUrl(wmPlay),
                             fileExtension = "mp4",
                             mimeType = "video/mp4"
                         )
@@ -150,7 +152,7 @@ class TikTokService {
                             type = DownloadFormatType.AUDIO_MP3,
                             title = "Nhạc Chuông / Âm Thanh MP3",
                             description = "Tách riêng file âm thanh gốc",
-                            downloadUrl = if (music.startsWith("http")) music else "https://www.tikwm.com$music",
+                            downloadUrl = normalizeMediaUrl(music),
                             fileExtension = "mp3",
                             mimeType = "audio/mpeg"
                         )
@@ -162,7 +164,7 @@ class TikTokService {
                 val imagesList = mutableListOf<String>()
                 if (imagesJson != null) {
                     for (i in 0 until imagesJson.length()) {
-                        imagesList.add(imagesJson.getString(i))
+                        imagesList.add(normalizeMediaUrl(imagesJson.getString(i)))
                     }
                 }
 
@@ -186,6 +188,20 @@ class TikTokService {
             }
         } catch (e: Exception) {
             Result.failure(e)
+        }
+    }
+
+    /**
+     * Normalizes partial or relative URLs returned by the API into fully qualified HTTPS URLs.
+     */
+    private fun normalizeMediaUrl(url: String?): String {
+        if (url.isNullOrBlank()) return ""
+        val trimmed = url.trim()
+        return when {
+            trimmed.startsWith("http://") || trimmed.startsWith("https://") -> trimmed
+            trimmed.startsWith("//") -> "https:$trimmed"
+            trimmed.startsWith("/") -> "https://www.tikwm.com$trimmed"
+            else -> "https://www.tikwm.com/$trimmed"
         }
     }
 }

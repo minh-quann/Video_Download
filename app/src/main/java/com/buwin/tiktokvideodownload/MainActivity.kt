@@ -105,40 +105,53 @@ fun MainApp(
     isDark: Boolean,
     sharedUrl: String?
 ) {
-    val backdrop = rememberLayerBackdrop()
+    val screenBackdrop = rememberLayerBackdrop()
+    val localBackdrop = rememberLayerBackdrop()
     var selectedTab by remember { mutableIntStateOf(0) }
+
+    // Preserve HomeScreen state when switching tabs
+    var homeInputUrl by remember { mutableStateOf(sharedUrl ?: "") }
+    var homeIsLoading by remember { mutableStateOf(false) }
+    var homeVideoInfo by remember { mutableStateOf<com.buwin.tiktokvideodownload.data.model.TikTokVideoInfo?>(null) }
+    val homeScrollState = androidx.compose.foundation.rememberScrollState()
+
+    androidx.compose.runtime.LaunchedEffect(sharedUrl) {
+        if (!sharedUrl.isNullOrBlank()) {
+            homeInputUrl = sharedUrl
+        }
+    }
 
     val backgroundColor = if (isDark) BackgroundDark else BackgroundLight
 
     Box(modifier = Modifier.fillMaxSize()) {
-        // Sampled backdrop background canvas with requested Light (#FAFAF9) or Dark (#000000)
+        // Screen content with background captured into screenBackdrop for true Liquid Glass transparency
         Box(
             modifier = Modifier
-                .layerBackdrop(backdrop)
+                .layerBackdrop(screenBackdrop)
                 .fillMaxSize()
                 .background(backgroundColor)
-        )
-
-        // Screen content
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .statusBarsPadding()
         ) {
             when (selectedTab) {
                 0 -> HomeScreen(
-                    backdrop = backdrop,
                     tiktokService = tiktokService,
                     downloadHelper = downloadHelper,
                     themePreferences = themePreferences,
-                    sharedUrl = sharedUrl
+                    inputUrl = homeInputUrl,
+                    onInputUrlChange = { homeInputUrl = it },
+                    isLoading = homeIsLoading,
+                    onIsLoadingChange = { homeIsLoading = it },
+                    videoInfo = homeVideoInfo,
+                    onVideoInfoChange = { homeVideoInfo = it },
+                    scrollState = homeScrollState,
+                    sharedUrl = sharedUrl,
+                    backdrop = localBackdrop
                 )
                 1 -> HistoryScreen(
-                    backdrop = backdrop,
+                    backdrop = localBackdrop,
                     downloadHelper = downloadHelper
                 )
                 2 -> SettingsScreen(
-                    backdrop = backdrop,
+                    backdrop = localBackdrop,
                     themePreferences = themePreferences,
                     downloadHelper = downloadHelper
                 )
@@ -151,7 +164,7 @@ fun MainApp(
         LiquidBottomTabs(
             selectedTabIndex = { selectedTab },
             onTabSelected = { selectedTab = it },
-            backdrop = backdrop,
+            backdrop = screenBackdrop,
             tabsCount = 3,
             isDark = isDark,
             modifier = Modifier
