@@ -51,15 +51,20 @@ fun LiquidTopBar(
         modifier = modifier
             .fillMaxWidth()
             .height(headerHeight)
-            .drawPlainBackdrop(
-                backdrop = backdrop,
-                shape = { RectangleShape },
-                effects = {
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                        blur(if (isDark) 18f.dp.toPx() else 24f.dp.toPx())
-                        runtimeShaderEffect(
-                            "AlphaMask",
-                            """
+    ) {
+        // Backdrop Blur Layer (Clipped to background bounds)
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .drawPlainBackdrop(
+                    backdrop = backdrop,
+                    shape = { RectangleShape },
+                    effects = {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                            blur(if (isDark) 18f.dp.toPx() else 24f.dp.toPx())
+                            runtimeShaderEffect(
+                                "AlphaMask",
+                                """
 uniform shader content;
 
 uniform float2 size;
@@ -71,18 +76,18 @@ half4 main(float2 coord) {
     float tintAlpha = smoothstep(size.y, size.y * 0.35, coord.y);
     return mix(content.eval(coord) * blurAlpha, tint * tintAlpha, tintIntensity);
 }""",
-                            "content"
-                        ) {
-                            setFloatUniform("size", size.width, size.height)
-                            setColorUniform("tint", tintColor)
-                            setFloatUniform("tintIntensity", if (isDark) 0.85f else 0.78f)
+                                "content"
+                            ) {
+                                setFloatUniform("size", size.width, size.height)
+                                setColorUniform("tint", tintColor)
+                                setFloatUniform("tintIntensity", if (isDark) 0.85f else 0.78f)
+                            }
+                        } else {
+                            blur(if (isDark) 16f.dp.toPx() else 22f.dp.toPx())
                         }
-                    } else {
-                        blur(if (isDark) 16f.dp.toPx() else 22f.dp.toPx())
                     }
-                }
-            )
-    ) {
+                )
+        )
         // Ultra-smooth progressive tint overlay fading out seamlessly towards the bottom
         Box(
             modifier = Modifier

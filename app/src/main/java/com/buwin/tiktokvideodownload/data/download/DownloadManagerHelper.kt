@@ -1,28 +1,47 @@
 package com.buwin.tiktokvideodownload.data.download
 
 import android.app.DownloadManager
+import android.content.ContentUris
+import android.content.ContentValues
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
 import android.os.Environment
+import android.provider.MediaStore
 import com.buwin.tiktokvideodownload.data.model.DownloadFormatType
 import com.buwin.tiktokvideodownload.data.model.DownloadOption
 import com.buwin.tiktokvideodownload.data.model.DownloadRecord
 import com.buwin.tiktokvideodownload.data.model.TikTokVideoInfo
 import com.buwin.tiktokvideodownload.data.notification.NotificationHelper
 import com.buwin.tiktokvideodownload.ui.components.toast.AppToast
+import com.buwin.tiktokvideodownload.ui.components.toast.DownloadItemProgress
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import okhttp3.Call
+import okhttp3.OkHttpClient
+import okhttp3.Request
 import org.json.JSONArray
 import org.json.JSONObject
+import java.io.File
+import java.io.FileOutputStream
+import java.io.IOException
+import java.io.OutputStream
+import java.util.Collections
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicLong
 
 /**
- * Handles file downloading using Android's system DownloadManager, persists download history,
- * tracks live download progress, and broadcasts updates to both in-app WaterdropToast and
- * system Local Notifications.
+ * Handles concurrent parallel file downloading using OkHttpClient streaming and MediaStore.Downloads.
+ * Tracks live download progress per task, persists download history, and broadcasts updates to both
+ * the in-app multi-download WaterdropToast and system Local Notifications.
  */
 class DownloadManagerHelper(private val context: Context) {
 
@@ -30,11 +49,118 @@ class DownloadManagerHelper(private val context: Context) {
     private val prefs = context.getSharedPreferences("tiktok_downloads_prefs", Context.MODE_PRIVATE)
     private val notificationHelper = NotificationHelper(context)
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
-    private val cancelledDownloadIds = java.util.Collections.synchronizedSet(mutableSetOf<Long>())
+
+    // High performance OkHttpClient supporting concurrent parallel connections
+    private val okHttpClient: OkHttpClient = OkHttpClient.Builder()
+        .connectTimeout(20, TimeUnit.SECONDS)
+        .readTimeout(60, TimeUnit.SECONDS)
+        .followRedirects(true)
+        .followSslRedirects(true)
+        .retryOnConnectionFailure(true)
+        .build()
+
+    private val idGenerator = AtomicLong(System.currentTimeMillis())
+    private val activeTasks = ConcurrentHashMap<Long, ActiveDownloadTask>()
+    private val activeJobs = ConcurrentHashMap<Long, Job>()
+    private val activeCalls = ConcurrentHashMap<Long, Call>()
+    private val cancelledDownloadIds = Collections.synchronizedSet(mutableSetOf<Long>())
+
+    data class ActiveDownloadTask(
+        val downloadId: Long,
+        val optionTitle: String,
+        val videoTitle: String,
+        val isAudio: Boolean,
+        var bytesDownloaded: Long = 0L,
+        var totalBytes: Long = 0L,
+        var speedBytesPerSec: Long = 0L,
+        var progress: Int = -1
+    )
 
     /**
-     * Enqueues a download with system DownloadManager and records it to history.
-     * Launches progress monitoring for both in-app Toast and system Local Notifications.
+     * Centralized aggregator for live download updates into the in-app Waterdrop dynamic toast.
+     * Combines multiple simultaneous format downloads smoothly, showing individual progress bars
+     * and aggregated speed/progress.
+     */
+    @Synchronized
+    private fun dispatchToastUpdate() {
+        val tasks = activeTasks.values.toList()
+        if (tasks.isEmpty()) return
+
+        if (tasks.size == 1) {
+            val single = tasks.first()
+            val progressLabel = if (single.progress >= 0) "${single.progress}%" else "Đang tải..."
+            val sizeText = if (single.totalBytes > 0) {
+                "${AppToast.formatBytes(single.bytesDownloaded)} / ${AppToast.formatBytes(single.totalBytes)}"
+            } else {
+                AppToast.formatBytes(single.bytesDownloaded)
+            }
+            val downloadingTitle = single.optionTitle.ifEmpty {
+                if (single.isAudio) "Đang tải âm thanh..." else "Đang tải video..."
+            }
+
+            AppToast.showProgress(
+                title = downloadingTitle,
+                message = "$sizeText ($progressLabel)",
+                progress = single.progress,
+                downloadedBytes = single.bytesDownloaded,
+                totalBytes = single.totalBytes,
+                speedBytesPerSec = single.speedBytesPerSec,
+                downloadId = single.downloadId
+            )
+        } else {
+            val count = tasks.size
+            val totalDownloaded = tasks.sumOf { it.bytesDownloaded }
+            val allHaveTotal = tasks.all { it.totalBytes > 0 }
+            val sumTotalBytes = tasks.sumOf { it.totalBytes }
+            val combinedSpeed = tasks.sumOf { it.speedBytesPerSec }
+
+            val overallProgress = if (allHaveTotal && sumTotalBytes > 0) {
+                ((totalDownloaded * 100) / sumTotalBytes).toInt().coerceIn(0, 100)
+            } else {
+                val valid = tasks.filter { it.progress >= 0 }
+                if (valid.isNotEmpty()) (valid.sumOf { it.progress } / valid.size).coerceIn(0, 100) else -1
+            }
+
+            val progressLabel = if (overallProgress >= 0) "$overallProgress%" else "Đang tải..."
+            val sizeText = if (allHaveTotal && sumTotalBytes > 0) {
+                "${AppToast.formatBytes(totalDownloaded)} / ${AppToast.formatBytes(sumTotalBytes)}"
+            } else {
+                "${AppToast.formatBytes(totalDownloaded)} ($count tệp)"
+            }
+
+            val itemList = tasks.map { task ->
+                DownloadItemProgress(
+                    downloadId = task.downloadId,
+                    title = task.optionTitle,
+                    message = if (task.totalBytes > 0) {
+                        "${AppToast.formatBytes(task.bytesDownloaded)} / ${AppToast.formatBytes(task.totalBytes)}"
+                    } else {
+                        AppToast.formatBytes(task.bytesDownloaded)
+                    },
+                    progress = task.progress,
+                    downloadedBytes = task.bytesDownloaded,
+                    totalBytes = task.totalBytes,
+                    speedBytesPerSec = task.speedBytesPerSec,
+                    isAudio = task.isAudio
+                )
+            }
+
+            AppToast.showProgress(
+                title = "Đang tải $count tệp...",
+                message = "$sizeText ($progressLabel)",
+                progress = overallProgress,
+                downloadedBytes = totalDownloaded,
+                totalBytes = if (allHaveTotal) sumTotalBytes else 0L,
+                speedBytesPerSec = combinedSpeed,
+                downloadId = 0L,
+                items = itemList
+            )
+        }
+    }
+
+    /**
+     * Enqueues and initiates a concurrent download stream on Dispatchers.IO.
+     * Multiple calls execute in parallel without sequential queue blocking.
      */
     fun enqueueDownload(videoInfo: TikTokVideoInfo, option: DownloadOption): Long {
         if (option.downloadUrl.isBlank() || (!option.downloadUrl.startsWith("http://") && !option.downloadUrl.startsWith("https://"))) {
@@ -56,24 +182,10 @@ class DownloadManagerHelper(private val context: Context) {
 
         val fileName = "${sanitizedTitle}_${option.type.name.lowercase()}_${System.currentTimeMillis()}.${option.fileExtension}"
 
-        val request = DownloadManager.Request(Uri.parse(option.downloadUrl)).apply {
-            setTitle(videoInfo.title.ifEmpty { "$defaultPrefix Video" })
-            setDescription("Đang tải ${option.title}")
-            setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE)
-            setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, "$subDir/$fileName")
-            setMimeType(option.mimeType)
-            setAllowedOverMetered(true)
-            setAllowedOverRoaming(true)
-        }
-
-        val downloadId = downloadManager.enqueue(request)
+        val downloadId = idGenerator.incrementAndGet()
         cancelledDownloadIds.remove(downloadId)
 
-        val filePath = java.io.File(
-            Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS),
-            "$subDir/$fileName"
-        ).absolutePath
-
+        val isAudio = option.type == DownloadFormatType.AUDIO_MP3
         val record = DownloadRecord(
             id = videoInfo.id,
             title = videoInfo.title.ifEmpty { "Video ${videoInfo.id}" },
@@ -82,21 +194,24 @@ class DownloadManagerHelper(private val context: Context) {
             formatTitle = option.title,
             fileExtension = option.fileExtension,
             downloadId = downloadId,
-            filePath = filePath
+            filePath = ""
         )
         saveRecord(record)
 
-        // Show initial feedback in Waterdrop Toast and Local Notification
-        val isAudio = option.type == DownloadFormatType.AUDIO_MP3
-        AppToast.showProgress(
-            title = option.title.ifEmpty { if (isAudio) "Bắt đầu tải âm thanh..." else "Bắt đầu tải video..." },
-            message = "Đang kết nối...",
-            progress = 0,
-            downloadedBytes = 0L,
+        // Register in active multi-download registry and dispatch aggregated update
+        val task = ActiveDownloadTask(
+            downloadId = downloadId,
+            optionTitle = option.title.ifEmpty { if (isAudio) "Âm thanh MP3" else "Video" },
+            videoTitle = videoInfo.title.ifEmpty { "$defaultPrefix Video" },
+            isAudio = isAudio,
+            bytesDownloaded = 0L,
             totalBytes = 0L,
             speedBytesPerSec = 0L,
-            downloadId = downloadId
+            progress = 0
         )
+        activeTasks[downloadId] = task
+        dispatchToastUpdate()
+
         notificationHelper.showProgress(
             notificationId = downloadId.toInt(),
             title = videoInfo.title.ifEmpty { "$defaultPrefix Video" },
@@ -104,59 +219,306 @@ class DownloadManagerHelper(private val context: Context) {
             progress = 0
         )
 
-        // Launch live progress tracker
-        scope.launch {
-            monitorDownloadProgress(downloadId, videoInfo, option, defaultPrefix)
+        // Launch concurrent parallel download coroutine
+        val job = scope.launch {
+            executeParallelDownload(
+                downloadId = downloadId,
+                videoInfo = videoInfo,
+                option = option,
+                fileName = fileName,
+                subDir = subDir,
+                defaultPrefix = defaultPrefix
+            )
         }
+        activeJobs[downloadId] = job
 
         return downloadId
     }
 
     /**
-     * Cancels an active download, dismisses system notification, removes partial files,
-     * and deletes the uncompleted record from history.
+     * Executes the actual streaming download concurrently using OkHttpClient,
+     * writes directly to MediaStore.Downloads (or public Downloads folder fallback),
+     * and streams progress updates in real-time.
+     */
+    private suspend fun executeParallelDownload(
+        downloadId: Long,
+        videoInfo: TikTokVideoInfo,
+        option: DownloadOption,
+        fileName: String,
+        subDir: String,
+        defaultPrefix: String
+    ) {
+        val displayTitle = videoInfo.title.ifEmpty { "$defaultPrefix Video" }
+        val isAudio = option.type == DownloadFormatType.AUDIO_MP3
+        var savedContentUri: Uri? = null
+        var fallbackFile: File? = null
+        var outputStream: OutputStream? = null
+
+        try {
+            // 1. Prepare MediaStore entry in Downloads directory
+            val mime = option.mimeType.ifBlank { if (isAudio) "audio/mpeg" else "video/mp4" }
+            val contentValues = ContentValues().apply {
+                put(MediaStore.Downloads.DISPLAY_NAME, fileName)
+                put(MediaStore.Downloads.MIME_TYPE, mime)
+                put(MediaStore.Downloads.RELATIVE_PATH, "${Environment.DIRECTORY_DOWNLOADS}/$subDir")
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    put(MediaStore.Downloads.IS_PENDING, 1)
+                }
+            }
+            savedContentUri = try {
+                context.contentResolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, contentValues)
+            } catch (_: Exception) {
+                null
+            }
+
+            outputStream = if (savedContentUri != null) {
+                context.contentResolver.openOutputStream(savedContentUri)
+            } else {
+                val dir = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), subDir)
+                if (!dir.exists()) dir.mkdirs()
+                val file = File(dir, fileName)
+                fallbackFile = file
+                FileOutputStream(file)
+            }
+
+            if (outputStream == null) {
+                throw IOException("Không thể mở luồng ghi tệp tin")
+            }
+
+            // 2. Build OkHttp request and start streaming
+            val request = Request.Builder()
+                .url(option.downloadUrl)
+                .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+                .header("Accept", "*/*")
+                .build()
+
+            val call = okHttpClient.newCall(request)
+            activeCalls[downloadId] = call
+
+            val response = call.execute()
+            if (!response.isSuccessful) {
+                throw IOException("Lỗi kết nối HTTP: ${response.code}")
+            }
+
+            val body = response.body ?: throw IOException("Phản hồi rỗng từ máy chủ")
+            val totalBytes = body.contentLength()
+            val inputStream = body.byteStream()
+
+            val buffer = ByteArray(32 * 1024)
+            var bytesRead: Int
+            var totalRead = 0L
+            var lastUpdateMs = System.currentTimeMillis()
+            var lastBytes = 0L
+            var currentSpeed = 0L
+
+            outputStream.use { out ->
+                inputStream.use { inStream ->
+                    while (inStream.read(buffer).also { bytesRead = it } != -1) {
+                        if (cancelledDownloadIds.contains(downloadId) || !currentCoroutineContext().isActive) {
+                            throw CancellationException("Tải xuống bị hủy bởi người dùng")
+                        }
+
+                        out.write(buffer, 0, bytesRead)
+                        totalRead += bytesRead
+
+                        val now = System.currentTimeMillis()
+                        val timeDelta = now - lastUpdateMs
+                        if (timeDelta >= 250) {
+                            val bytesDelta = (totalRead - lastBytes).coerceAtLeast(0L)
+                            val instantSpeed = (bytesDelta * 1000L) / timeDelta.coerceAtLeast(1L)
+                            currentSpeed = if (currentSpeed == 0L) instantSpeed else ((currentSpeed * 0.4) + (instantSpeed * 0.6)).toLong()
+                            lastBytes = totalRead
+                            lastUpdateMs = now
+
+                            val progress = if (totalBytes > 0) {
+                                ((totalRead * 100) / totalBytes).toInt().coerceIn(0, 100)
+                            } else {
+                                -1
+                            }
+
+                            val task = activeTasks[downloadId]
+                            if (task != null) {
+                                task.bytesDownloaded = totalRead
+                                task.totalBytes = totalBytes
+                                task.speedBytesPerSec = currentSpeed
+                                task.progress = progress
+                            }
+                            dispatchToastUpdate()
+
+                            val progressLabel = if (progress >= 0) "$progress%" else "Đang tải..."
+                            val sizeText = if (totalBytes > 0) {
+                                "${AppToast.formatBytes(totalRead)} / ${AppToast.formatBytes(totalBytes)}"
+                            } else {
+                                AppToast.formatBytes(totalRead)
+                            }
+                            val speedText = if (currentSpeed > 0) " • ${AppToast.formatSpeed(currentSpeed)}" else ""
+
+                            notificationHelper.showProgress(
+                                notificationId = downloadId.toInt(),
+                                title = displayTitle,
+                                contentText = "$sizeText ($progressLabel)$speedText",
+                                progress = progress
+                            )
+                        }
+                    }
+                    out.flush()
+                }
+            }
+
+            // 3. Mark file as finalized in MediaStore
+            if (savedContentUri != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                val finalizeValues = ContentValues().apply {
+                    put(MediaStore.Downloads.IS_PENDING, 0)
+                }
+                context.contentResolver.update(savedContentUri, finalizeValues, null, null)
+            }
+
+            val finalFilePath = savedContentUri?.toString() ?: fallbackFile?.absolutePath ?: ""
+            updateRecordCompleted(downloadId, finalFilePath)
+
+            activeTasks.remove(downloadId)
+            activeJobs.remove(downloadId)
+            activeCalls.remove(downloadId)
+
+            val finalSize = if (totalBytes > 0) AppToast.formatBytes(totalBytes) else if (totalRead > 0) AppToast.formatBytes(totalRead) else ""
+            val sizeInfo = if (finalSize.isNotEmpty() && finalSize != "0 B") "$finalSize • " else ""
+            val actionLabel = if (isAudio) "nghe âm thanh" else "xem video"
+
+            notificationHelper.showCompleted(
+                notificationId = downloadId.toInt(),
+                title = "Tải hoàn tất!",
+                contentText = "$displayTitle • ${sizeInfo}Đã lưu vào máy"
+            )
+
+            if (activeTasks.isNotEmpty()) {
+                dispatchToastUpdate()
+            } else {
+                AppToast.showSuccess(
+                    title = "Tải hoàn tất!",
+                    message = "${sizeInfo}Chạm để $actionLabel",
+                    downloadId = downloadId
+                )
+            }
+
+        } catch (e: CancellationException) {
+            cleanupDownloadResources(downloadId, savedContentUri, fallbackFile)
+            if (activeTasks.isNotEmpty()) {
+                dispatchToastUpdate()
+            } else {
+                AppToast.hide()
+            }
+        } catch (e: Exception) {
+            cleanupDownloadResources(downloadId, savedContentUri, fallbackFile)
+            if (activeTasks.isNotEmpty()) {
+                dispatchToastUpdate()
+            } else {
+                val errorMsg = if (isAudio) "Không thể tải âm thanh. Vui lòng kiểm tra mạng và thử lại." else "Không thể tải video. Vui lòng kiểm tra mạng và thử lại."
+                AppToast.showError(
+                    title = "Tải thất bại",
+                    message = errorMsg
+                )
+            }
+            notificationHelper.showError(
+                notificationId = downloadId.toInt(),
+                title = "Tải thất bại",
+                contentText = "Không thể tải $displayTitle"
+            )
+        }
+    }
+
+    /**
+     * Cleans up allocated resources, deletes partial file / content URI,
+     * and clears uncompleted record from history.
+     */
+    private fun cleanupDownloadResources(
+        downloadId: Long,
+        savedContentUri: Uri?,
+        fallbackFile: File?
+    ) {
+        activeTasks.remove(downloadId)
+        activeJobs.remove(downloadId)
+        activeCalls.remove(downloadId)
+        cancelledDownloadIds.remove(downloadId)
+        notificationHelper.cancel(downloadId.toInt())
+
+        try {
+            if (savedContentUri != null) {
+                context.contentResolver.delete(savedContentUri, null, null)
+            }
+            fallbackFile?.let {
+                if (it.exists()) it.delete()
+            }
+        } catch (_: Exception) {
+        }
+
+        removeHistoryRecord(downloadId)
+    }
+
+    /**
+     * Cancels an active download or all active downloads, dismisses system notification,
+     * terminates running network requests, removes partial files, and cleans uncompleted records.
      */
     fun cancelDownload(downloadId: Long) {
-        if (downloadId <= 0) return
+        if (downloadId <= 0) {
+            val allIds = activeTasks.keys.toList()
+            allIds.forEach { cancelDownload(it) }
+            AppToast.hide()
+            return
+        }
         cancelledDownloadIds.add(downloadId)
+        activeTasks.remove(downloadId)
+        activeCalls.remove(downloadId)?.cancel()
+        activeJobs.remove(downloadId)?.cancel()
+        notificationHelper.cancel(downloadId.toInt())
+        removeHistoryRecord(downloadId)
 
-        // 1. Remove from Android DownloadManager (halts download and cleans temp file)
         try {
             downloadManager.remove(downloadId)
         } catch (_: Exception) {
         }
 
-        // 2. Dismiss system status bar notification
-        notificationHelper.cancel(downloadId.toInt())
+        if (activeTasks.isNotEmpty()) {
+            dispatchToastUpdate()
+        } else {
+            AppToast.hide()
+        }
+    }
 
-        // 3. Remove uncompleted record from history and delete partial file if present
+    /**
+     * Updates an existing record with its completed file path and latest timestamp.
+     */
+    private fun updateRecordCompleted(downloadId: Long, finalFilePath: String) {
+        try {
+            val records = getHistory().toMutableList()
+            val index = records.indexOfFirst { it.downloadId == downloadId }
+            if (index != -1) {
+                val old = records[index]
+                records[index] = old.copy(filePath = finalFilePath, timestamp = System.currentTimeMillis())
+                saveAllRecords(records)
+            }
+        } catch (_: Exception) {
+        }
+    }
+
+    /**
+     * Removes an uncompleted or cancelled record from history and storage.
+     */
+    private fun removeHistoryRecord(downloadId: Long) {
         try {
             val records = getHistory().toMutableList()
             val target = records.firstOrNull { it.downloadId == downloadId }
             if (target != null) {
                 records.removeAll { it.downloadId == downloadId }
-                val jsonArray = JSONArray()
-                records.take(50).forEach { item ->
-                    val obj = JSONObject().apply {
-                        put("id", item.id)
-                        put("title", item.title)
-                        put("author", item.author)
-                        put("coverUrl", item.coverUrl)
-                        put("formatTitle", item.formatTitle)
-                        put("fileExtension", item.fileExtension)
-                        put("downloadId", item.downloadId)
-                        put("timestamp", item.timestamp)
-                        put("filePath", item.filePath)
-                    }
-                    jsonArray.put(obj)
-                }
-                prefs.edit().putString("history_json", jsonArray.toString()).apply()
+                saveAllRecords(records)
 
-                if (target.filePath.isNotEmpty()) {
-                    val f = java.io.File(target.filePath)
-                    if (f.exists()) {
-                        f.delete()
+                if (target.filePath.startsWith("content://")) {
+                    try {
+                        context.contentResolver.delete(Uri.parse(target.filePath), null, null)
+                    } catch (_: Exception) {
                     }
+                } else if (target.filePath.isNotEmpty()) {
+                    val f = File(target.filePath)
+                    if (f.exists()) f.delete()
                 }
             }
         } catch (_: Exception) {
@@ -164,166 +526,9 @@ class DownloadManagerHelper(private val context: Context) {
     }
 
     /**
-     * Periodically queries DownloadManager to update Toast and Local Notification progress.
+     * Saves all records into SharedPreferences.
      */
-    private suspend fun monitorDownloadProgress(
-        downloadId: Long,
-        videoInfo: TikTokVideoInfo,
-        option: DownloadOption,
-        platformName: String
-    ) {
-        var isPolling = true
-        val displayTitle = videoInfo.title.ifEmpty { "$platformName Video" }
-        var lastBytes = 0L
-        var lastTime = System.currentTimeMillis()
-        var currentSpeed = 0L
-
-        while (isPolling) {
-            if (cancelledDownloadIds.contains(downloadId)) {
-                isPolling = false
-                cancelledDownloadIds.remove(downloadId)
-                return
-            }
-            delay(350)
-            if (cancelledDownloadIds.contains(downloadId)) {
-                isPolling = false
-                cancelledDownloadIds.remove(downloadId)
-                return
-            }
-            try {
-                val query = DownloadManager.Query().setFilterById(downloadId)
-                downloadManager.query(query)?.use { cursor ->
-                    if (cancelledDownloadIds.contains(downloadId)) {
-                        isPolling = false
-                        cancelledDownloadIds.remove(downloadId)
-                        return
-                    }
-                    if (cursor.moveToFirst()) {
-                        if (cancelledDownloadIds.contains(downloadId)) {
-                            isPolling = false
-                            cancelledDownloadIds.remove(downloadId)
-                            return
-                        }
-                        val bytesDownloaded = cursor.getLong(
-                            cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_BYTES_DOWNLOADED_SO_FAR)
-                        )
-                        val totalBytes = cursor.getLong(
-                            cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_TOTAL_SIZE_BYTES)
-                        )
-                        val status = cursor.getInt(
-                            cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS)
-                        )
-
-                        // Calculate network transfer speed with smoothing
-                        val now = System.currentTimeMillis()
-                        val timeDeltaMs = now - lastTime
-                        if (timeDeltaMs >= 450) {
-                            val bytesDelta = (bytesDownloaded - lastBytes).coerceAtLeast(0L)
-                            val instantSpeed = (bytesDelta * 1000L) / timeDeltaMs
-                            currentSpeed = if (currentSpeed == 0L) instantSpeed else ((currentSpeed * 0.4) + (instantSpeed * 0.6)).toLong()
-                            lastBytes = bytesDownloaded
-                            lastTime = now
-                        }
-
-                        val progress = if (totalBytes > 0) {
-                            ((bytesDownloaded * 100) / totalBytes).toInt().coerceIn(0, 100)
-                        } else {
-                            -1
-                        }
-
-                        when (status) {
-                            DownloadManager.STATUS_RUNNING, DownloadManager.STATUS_PENDING -> {
-                                if (cancelledDownloadIds.contains(downloadId)) {
-                                    isPolling = false
-                                    cancelledDownloadIds.remove(downloadId)
-                                    return
-                                }
-                                val progressLabel = if (progress >= 0) "$progress%" else "Đang tải..."
-                                val sizeText = if (totalBytes > 0) {
-                                    "${AppToast.formatBytes(bytesDownloaded)} / ${AppToast.formatBytes(totalBytes)}"
-                                } else {
-                                    AppToast.formatBytes(bytesDownloaded)
-                                }
-                                val speedText = if (currentSpeed > 0) " • ${AppToast.formatSpeed(currentSpeed)}" else ""
-
-                                val isAudioOption = option.type == DownloadFormatType.AUDIO_MP3
-                                val downloadingTitle = option.title.ifEmpty { if (isAudioOption) "Đang tải âm thanh..." else "Đang tải video..." }
-
-                                AppToast.showProgress(
-                                    title = downloadingTitle,
-                                    message = "$sizeText ($progressLabel)",
-                                    progress = progress,
-                                    downloadedBytes = bytesDownloaded,
-                                    totalBytes = totalBytes,
-                                    speedBytesPerSec = currentSpeed,
-                                    downloadId = downloadId
-                                )
-                                notificationHelper.showProgress(
-                                    notificationId = downloadId.toInt(),
-                                    title = displayTitle,
-                                    contentText = "$sizeText ($progressLabel)$speedText",
-                                    progress = progress
-                                )
-                            }
-                            DownloadManager.STATUS_SUCCESSFUL -> {
-                                isPolling = false
-                                if (cancelledDownloadIds.contains(downloadId)) {
-                                    cancelledDownloadIds.remove(downloadId)
-                                    return
-                                }
-                                val isAudioOption = option.type == DownloadFormatType.AUDIO_MP3
-                                val finalSize = if (totalBytes > 0) AppToast.formatBytes(totalBytes) else if (bytesDownloaded > 0) AppToast.formatBytes(bytesDownloaded) else ""
-                                val sizeInfo = if (finalSize.isNotEmpty() && finalSize != "0 B") "$finalSize • " else ""
-                                val actionLabel = if (isAudioOption) "nghe âm thanh" else "xem video"
-                                AppToast.showSuccess(
-                                    title = "Tải hoàn tất!",
-                                    message = "${sizeInfo}Chạm để $actionLabel",
-                                    downloadId = downloadId
-                                )
-                                notificationHelper.showCompleted(
-                                    notificationId = downloadId.toInt(),
-                                    title = "Tải hoàn tất!",
-                                    contentText = "$displayTitle • ${sizeInfo}Đã lưu vào máy"
-                                )
-                            }
-                            DownloadManager.STATUS_FAILED -> {
-                                isPolling = false
-                                if (cancelledDownloadIds.contains(downloadId)) {
-                                    cancelledDownloadIds.remove(downloadId)
-                                    return
-                                }
-                                val isAudioOption = option.type == DownloadFormatType.AUDIO_MP3
-                                val errorMsg = if (isAudioOption) "Không thể tải âm thanh. Vui lòng kiểm tra mạng và thử lại." else "Không thể tải video. Vui lòng kiểm tra mạng và thử lại."
-                                AppToast.showError(
-                                    title = "Tải thất bại",
-                                    message = errorMsg
-                                )
-                                notificationHelper.showError(
-                                    notificationId = downloadId.toInt(),
-                                    title = "Tải thất bại",
-                                    contentText = "Không thể tải $displayTitle"
-                                )
-                            }
-                        }
-                    } else {
-                        isPolling = false
-                    }
-                } ?: run {
-                    isPolling = false
-                }
-            } catch (_: Exception) {
-                isPolling = false
-            }
-        }
-        cancelledDownloadIds.remove(downloadId)
-    }
-
-    /**
-     * Saves a record to SharedPreferences.
-     */
-    private fun saveRecord(record: DownloadRecord) {
-        val records = getHistory().toMutableList()
-        records.add(0, record)
+    private fun saveAllRecords(records: List<DownloadRecord>) {
         val jsonArray = JSONArray()
         records.take(50).forEach { item ->
             val obj = JSONObject().apply {
@@ -340,6 +545,15 @@ class DownloadManagerHelper(private val context: Context) {
             jsonArray.put(obj)
         }
         prefs.edit().putString("history_json", jsonArray.toString()).apply()
+    }
+
+    /**
+     * Saves a new record to the top of SharedPreferences history.
+     */
+    private fun saveRecord(record: DownloadRecord) {
+        val records = getHistory().toMutableList()
+        records.add(0, record)
+        saveAllRecords(records)
     }
 
     /**
@@ -373,9 +587,31 @@ class DownloadManagerHelper(private val context: Context) {
 
     /**
      * Obtains a playable content/file Uri for the downloaded record.
+     * Supports both modern MediaStore content URIs and legacy file paths.
      */
     fun getDownloadedUri(record: DownloadRecord): Uri? {
-        // 1. Try DownloadManager content Uri (preferred for Android Scoped Storage)
+        // 1. Direct Content Uri (preferred for Android Scoped Storage & Sharing)
+        if (record.filePath.startsWith("content://")) {
+            try {
+                val uri = Uri.parse(record.filePath)
+                context.contentResolver.openFileDescriptor(uri, "r")?.close()
+                return uri
+            } catch (_: Exception) {
+            }
+        }
+
+        // 2. Try recorded absolute file path
+        if (record.filePath.isNotEmpty()) {
+            try {
+                val file = File(record.filePath)
+                if (file.exists() && file.length() > 0) {
+                    return Uri.fromFile(file)
+                }
+            } catch (_: Exception) {
+            }
+        }
+
+        // 3. Try legacy DownloadManager content Uri (for items downloaded before update)
         try {
             if (record.downloadId > 0) {
                 val dmUri = downloadManager.getUriForDownloadedFile(record.downloadId)
@@ -384,23 +620,47 @@ class DownloadManagerHelper(private val context: Context) {
         } catch (_: Exception) {
         }
 
-        // 2. Try recorded absolute file path
-        if (record.filePath.isNotEmpty()) {
-            try {
-                val file = java.io.File(record.filePath)
-                if (file.exists() && file.length() > 0) {
-                    return Uri.fromFile(file)
-                }
-            } catch (_: Exception) {
+        // 4. Query MediaStore.Downloads for matching item
+        try {
+            val fileName = if (record.filePath.isNotEmpty()) File(record.filePath).name else ""
+            val projection = arrayOf(
+                MediaStore.Downloads._ID,
+                MediaStore.Downloads.DISPLAY_NAME
+            )
+            val selection = if (fileName.isNotEmpty()) {
+                "${MediaStore.Downloads.DISPLAY_NAME} = ?"
+            } else {
+                "${MediaStore.Downloads.DISPLAY_NAME} LIKE ?"
             }
+            val selectionArgs = if (fileName.isNotEmpty()) {
+                arrayOf(fileName)
+            } else {
+                arrayOf("%${record.id}%")
+            }
+            context.contentResolver.query(
+                MediaStore.Downloads.EXTERNAL_CONTENT_URI,
+                projection,
+                selection,
+                selectionArgs,
+                "${MediaStore.Downloads._ID} DESC"
+            )?.use { cursor ->
+                if (cursor.moveToFirst()) {
+                    val id = cursor.getLong(cursor.getColumnIndexOrThrow(MediaStore.Downloads._ID))
+                    return ContentUris.withAppendedId(
+                        MediaStore.Downloads.EXTERNAL_CONTENT_URI,
+                        id
+                    )
+                }
+            }
+        } catch (_: Exception) {
         }
 
-        // 3. Fallback: Search in TikTokDownloads or FacebookDownloads directory
+        // 5. Fallback: Search in TikTokDownloads or FacebookDownloads directory
         try {
             val downloadDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
             val subFolders = listOf("TikTokDownloads", "FacebookDownloads", "")
             for (sub in subFolders) {
-                val dir = if (sub.isEmpty()) downloadDir else java.io.File(downloadDir, sub)
+                val dir = if (sub.isEmpty()) downloadDir else File(downloadDir, sub)
                 if (dir.exists() && dir.isDirectory) {
                     val match = dir.listFiles()?.firstOrNull { f ->
                         f.isFile && f.length() > 0 && (

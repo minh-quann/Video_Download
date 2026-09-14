@@ -274,8 +274,12 @@ fun MainApp(
         AppConfirmationModal(
             visible = pendingCancelDownloadId != null,
             onDismissRequest = { pendingCancelDownloadId = null },
-            title = "Hủy tải xuống?",
-            message = "Bạn có chắc chắn muốn hủy quá trình tải tệp này không? Tiến trình hiện tại sẽ bị xóa.",
+            title = if (pendingCancelDownloadId == 0L) "Hủy tất cả tải xuống?" else "Hủy tải xuống?",
+            message = if (pendingCancelDownloadId == 0L) {
+                "Bạn có chắc chắn muốn hủy toàn bộ các tiến trình tải đang chạy không?"
+            } else {
+                "Bạn có chắc chắn muốn hủy quá trình tải tệp này không? Tiến trình hiện tại sẽ bị xóa."
+            },
             confirmText = "Hủy tải",
             cancelText = "Tiếp tục tải",
             isDestructive = true,
@@ -284,7 +288,6 @@ fun MainApp(
             onConfirm = {
                 pendingCancelDownloadId?.let { id ->
                     downloadHelper.cancelDownload(id)
-                    AppToast.hide()
                 }
                 pendingCancelDownloadId = null
             }

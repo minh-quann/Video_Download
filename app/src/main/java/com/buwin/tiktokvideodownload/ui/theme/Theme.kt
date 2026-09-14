@@ -67,8 +67,12 @@ fun TiktokVideoDownloadTheme(
     CompositionLocalProvider(LocalIsDark provides darkTheme) {
         MaterialTheme(
             colorScheme = colorScheme,
-            typography = Typography,
-            content = content
-        )
+            typography = Typography
+        ) {
+            androidx.compose.material3.ProvideTextStyle(
+                value = androidx.compose.ui.text.TextStyle(fontFamily = GoogleSansFlexFamily),
+                content = content
+            )
+        }
     }
 }

@@ -17,7 +17,6 @@ import androidx.compose.ui.graphics.isSpecified
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.util.fastCoerceAtMost
 import androidx.compose.ui.util.lerp
 import com.kyant.backdrop.Backdrop
 import com.kyant.backdrop.drawBackdrop
@@ -25,10 +24,11 @@ import com.kyant.backdrop.effects.blur
 import com.kyant.backdrop.effects.lens
 import com.kyant.backdrop.effects.vibrancy
 import com.kyant.backdrop.highlight.Highlight
-import kotlin.math.abs
 import kotlin.math.atan2
 import kotlin.math.cos
+import kotlin.math.hypot
 import kotlin.math.sin
+import kotlin.math.sqrt
 import kotlin.math.tanh
 
 /**
@@ -66,20 +66,33 @@ fun LiquidRoundButton(
                 layerBlock = if (isInteractive) {
                     {
                         val progress = interactiveHighlight.pressProgress
-                        val scale = lerp(1f, 1f + 3f.dp.toPx() / this.size.height, progress)
-
-                        val maxOffset = this.size.minDimension
-                        val initialDerivative = 0.05f
                         val offset = interactiveHighlight.offset
-                        translationX = maxOffset * tanh(initialDerivative * offset.x / maxOffset)
-                        translationY = maxOffset * tanh(initialDerivative * offset.y / maxOffset)
-
-                        val maxDragScale = 4f.dp.toPx() / this.size.height
+                        val dragDist = hypot(offset.x, offset.y)
                         val offsetAngle = atan2(offset.y, offset.x)
-                        scaleX = scale + maxDragScale * abs(cos(offsetAngle) * offset.x / this.size.maxDimension) *
-                                (this.size.width / this.size.height).fastCoerceAtMost(1f)
-                        scaleY = scale + maxDragScale * abs(sin(offsetAngle) * offset.y / this.size.maxDimension) *
-                                (this.size.height / this.size.width).fastCoerceAtMost(1f)
+
+                        // Apple Fluid Interface: Damped rubber-band displacement
+                        // Proportional to button dimensions, strictly bounded so it never breaches safe area or screen edges
+                        val maxDisplacement = (this.size.minDimension * 0.18f).coerceAtMost(8f.dp.toPx())
+                        val dampingDistance = (this.size.minDimension * 1.5f).coerceAtLeast(30f.dp.toPx())
+                        val dampedDistance = maxDisplacement * tanh(dragDist / dampingDistance)
+
+                        translationX = dampedDistance * cos(offsetAngle)
+                        translationY = dampedDistance * sin(offsetAngle)
+
+                        // Apple Liquid Glass tactile deformation: Volume-preserving squash & stretch
+                        // As it elongates along the drag vector, it compresses perpendicularly like a fluid droplet
+                        val maxStretch = 0.16f
+                        val stretchFactor = maxStretch * tanh(dragDist / dampingDistance)
+                        val scaleAlong = 1f + stretchFactor
+                        val scalePerp = 1f / sqrt(scaleAlong)
+
+                        // Subtle tactile pop on press
+                        val pressScale = lerp(1f, 1.04f, progress)
+
+                        val cos2 = cos(offsetAngle) * cos(offsetAngle)
+                        val sin2 = sin(offsetAngle) * sin(offsetAngle)
+                        scaleX = pressScale * (scaleAlong * cos2 + scalePerp * sin2)
+                        scaleY = pressScale * (scaleAlong * sin2 + scalePerp * cos2)
                     }
                 } else null,
                 onDrawSurface = {

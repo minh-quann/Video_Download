@@ -12,6 +12,17 @@ enum class ToastType {
     PROGRESS
 }
 
+data class DownloadItemProgress(
+    val downloadId: Long = -1L,
+    val title: String = "",
+    val message: String? = null,
+    val progress: Int = -1,
+    val downloadedBytes: Long = 0L,
+    val totalBytes: Long = 0L,
+    val speedBytesPerSec: Long = 0L,
+    val isAudio: Boolean = false
+)
+
 data class ToastState(
     val isVisible: Boolean = false,
     val type: ToastType = ToastType.INFO,
@@ -23,7 +34,8 @@ data class ToastState(
     val downloadedBytes: Long = 0L,
     val totalBytes: Long = 0L,
     val speedBytesPerSec: Long = 0L,
-    val downloadId: Long = -1L
+    val downloadId: Long = -1L,
+    val items: List<DownloadItemProgress> = emptyList()
 )
 
 /**
@@ -41,8 +53,18 @@ object AppToast {
         downloadedBytes: Long = 0L,
         totalBytes: Long = 0L,
         speedBytesPerSec: Long = 0L,
-        downloadId: Long = -1L
+        downloadId: Long = -1L,
+        items: List<DownloadItemProgress> = emptyList()
     ) {
+        val current = _state.value
+        // Only generate a new timestamp when opening a new toast or transitioning from non-progress.
+        // During ongoing download progress updates, keep the timestamp stable to prevent animation resets and UI flickering.
+        val targetTimestamp = if (!current.isVisible || current.type != ToastType.PROGRESS) {
+            System.currentTimeMillis()
+        } else {
+            current.timestamp
+        }
+
         _state.value = ToastState(
             isVisible = true,
             type = ToastType.PROGRESS,
@@ -50,11 +72,12 @@ object AppToast {
             message = message,
             progress = progress,
             durationMs = 0L, // Stays active while downloading
-            timestamp = System.currentTimeMillis(),
+            timestamp = targetTimestamp,
             downloadedBytes = downloadedBytes,
             totalBytes = totalBytes,
             speedBytesPerSec = speedBytesPerSec,
-            downloadId = downloadId
+            downloadId = downloadId,
+            items = items
         )
     }
 

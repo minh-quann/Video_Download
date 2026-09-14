@@ -37,6 +37,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -144,15 +145,19 @@ fun WaterdropToast(
         }
     }
 
+    // Keep currentDisplayState in sync with toastState whenever visible
+    LaunchedEffect(toastState) {
+        if (toastState.isVisible) {
+            currentDisplayState = toastState
+        }
+    }
+
     // Main orchestration effect responding to state changes
     LaunchedEffect(toastState.isVisible, toastState.timestamp) {
         if (toastState.isVisible) {
             currentDisplayState = toastState
 
-            if (isMounted && dropProgress.value > 0.5f) {
-                // Toast is ALREADY visible: smoothly update content without re-running drop animation
-                triggerHaptics(toastState.type)
-            } else {
+            if (!isMounted) {
                 // New Toast: Launch 2-Phase Waterdrop & Morphing Animation
                 isMounted = true
                 dropProgress.snapTo(0f)
@@ -182,6 +187,11 @@ fun WaterdropToast(
                             stiffness = 320f
                         )
                     )
+                }
+            } else {
+                // Toast is ALREADY mounted: update content smoothly without re-running entrance animation
+                if (toastState.type == ToastType.SUCCESS || toastState.type == ToastType.ERROR) {
+                    triggerHaptics(toastState.type)
                 }
             }
 
@@ -226,13 +236,16 @@ fun WaterdropToast(
             .graphicsLayer { alpha = containerAlpha },
         contentAlignment = Alignment.TopCenter
     ) {
+        val isMultiItem = currentDisplayState.items.size > 1
+        val cornerRadius = if (isMultiItem) 24.dp else 28.dp
+
         Surface(
             modifier = Modifier
                 .width(currentWidth)
                 .heightIn(min = CIRCLE_SIZE)
                 .shadow(
                     elevation = if (isDark) 12.dp else 8.dp,
-                    shape = CircleShape,
+                    shape = RoundedCornerShape(cornerRadius),
                     spotColor = if (isDark) Color.Black.copy(alpha = 0.5f) else Color.Black.copy(alpha = 0.15f)
                 )
                 .pointerInput(Unit) {
@@ -271,248 +284,418 @@ fun WaterdropToast(
                         }
                     )
                 },
-            shape = CircleShape,
+            shape = RoundedCornerShape(cornerRadius),
             color = backgroundColor,
             border = BorderStroke(1.dp, borderColor)
         ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null
-                    ) {
-                        onClick?.invoke(currentDisplayState)
-                    }
-                    .padding(vertical = 4.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // Fixed Icon Container (48x48dp, perfectly centered in Phase 1 droplet, stays left in Phase 2)
-                Box(
+            if (!isMultiItem) {
+                Row(
                     modifier = Modifier
-                        .size(CIRCLE_SIZE),
-                    contentAlignment = Alignment.Center
+                        .fillMaxWidth()
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null
+                        ) {
+                            onClick?.invoke(currentDisplayState)
+                        }
+                        .padding(vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Crossfade(
-                        targetState = currentDisplayState.type,
-                        animationSpec = tween(280),
-                        label = "ToastIconCrossfade"
-                    ) { type ->
-                        when (type) {
-                            ToastType.SUCCESS -> {
-                                Icon(
-                                    imageVector = CupertinoIcons.Filled.CheckmarkCircle,
-                                    contentDescription = null,
-                                    tint = Color(0xFF10B981),
-                                    modifier = Modifier.size(24.dp)
-                                )
-                            }
-                            ToastType.ERROR -> {
-                                Icon(
-                                    imageVector = CupertinoIcons.Filled.XmarkCircle,
-                                    contentDescription = null,
-                                    tint = Color(0xFFEF4444),
-                                    modifier = Modifier.size(24.dp)
-                                )
-                            }
-                            ToastType.INFO -> {
-                                Icon(
-                                    imageVector = CupertinoIcons.Filled.ArrowDownCircle,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(24.dp)
-                                )
-                            }
-                            ToastType.PROGRESS -> {
-                                Box(
-                                    contentAlignment = Alignment.Center,
-                                    modifier = Modifier.size(24.dp)
-                                ) {
-                                    if (currentDisplayState.progress >= 0) {
-                                        val smoothIconProgress by animateFloatAsState(
-                                            targetValue = (currentDisplayState.progress.coerceIn(0, 100)) / 100f,
-                                            animationSpec = tween(400, easing = LinearOutSlowInEasing),
-                                            label = "SmoothIconProgress"
-                                        )
-                                        CircularProgressIndicator(
-                                            progress = { smoothIconProgress },
-                                            modifier = Modifier.fillMaxSize(),
-                                            strokeWidth = 2.5.dp,
-                                            color = MaterialTheme.colorScheme.primary,
-                                            trackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.18f)
-                                        )
-                                    } else {
-                                        CircularProgressIndicator(
-                                            modifier = Modifier.fillMaxSize(),
-                                            strokeWidth = 2.5.dp,
-                                            color = MaterialTheme.colorScheme.primary
-                                        )
+                    // Fixed Icon Container (48x48dp, perfectly centered in Phase 1 droplet, stays left in Phase 2)
+                    Box(
+                        modifier = Modifier
+                            .size(CIRCLE_SIZE),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Crossfade(
+                            targetState = currentDisplayState.type,
+                            animationSpec = tween(280),
+                            label = "ToastIconCrossfade"
+                        ) { type ->
+                            when (type) {
+                                ToastType.SUCCESS -> {
+                                    Icon(
+                                        imageVector = CupertinoIcons.Filled.CheckmarkCircle,
+                                        contentDescription = null,
+                                        tint = Color(0xFF10B981),
+                                        modifier = Modifier.size(24.dp)
+                                    )
+                                }
+                                ToastType.ERROR -> {
+                                    Icon(
+                                        imageVector = CupertinoIcons.Filled.XmarkCircle,
+                                        contentDescription = null,
+                                        tint = Color(0xFFEF4444),
+                                        modifier = Modifier.size(24.dp)
+                                    )
+                                }
+                                ToastType.INFO -> {
+                                    Icon(
+                                        imageVector = CupertinoIcons.Filled.ArrowDownCircle,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(24.dp)
+                                    )
+                                }
+                                ToastType.PROGRESS -> {
+                                    Box(
+                                        contentAlignment = Alignment.Center,
+                                        modifier = Modifier.size(24.dp)
+                                    ) {
+                                        if (currentDisplayState.progress >= 0) {
+                                            val smoothIconProgress by animateFloatAsState(
+                                                targetValue = (currentDisplayState.progress.coerceIn(0, 100)) / 100f,
+                                                animationSpec = tween(400, easing = LinearOutSlowInEasing),
+                                                label = "SmoothIconProgress"
+                                            )
+                                            CircularProgressIndicator(
+                                                progress = { smoothIconProgress },
+                                                modifier = Modifier.fillMaxSize(),
+                                                strokeWidth = 2.5.dp,
+                                                color = MaterialTheme.colorScheme.primary,
+                                                trackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.18f)
+                                            )
+                                        } else {
+                                            CircularProgressIndicator(
+                                                modifier = Modifier.fillMaxSize(),
+                                                strokeWidth = 2.5.dp,
+                                                color = MaterialTheme.colorScheme.primary
+                                            )
+                                        }
                                     }
                                 }
+                            }
+                        }
+                    }
+
+                    // Content Row (Title, SubText, Progress Bar, Close Button) fading in during Phase 2
+                    if (expandProgress.value > 0.15f) {
+                        Row(
+                            modifier = Modifier
+                                .width(fullWidth - CIRCLE_SIZE)
+                                .padding(end = 14.dp)
+                                .graphicsLayer { alpha = contentAlpha },
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .animateContentSize(
+                                        animationSpec = spring(
+                                            dampingRatio = 0.82f,
+                                            stiffness = 380f
+                                        )
+                                    )
+                                    .padding(vertical = 4.dp),
+                                verticalArrangement = Arrangement.Center
+                            ) {
+                                Crossfade(
+                                    targetState = currentDisplayState.type == ToastType.PROGRESS,
+                                    animationSpec = tween(280),
+                                    label = "ToastContentCrossfade"
+                                ) { isProgress ->
+                                    if (isProgress) {
+                                        Column(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            verticalArrangement = Arrangement.Center
+                                        ) {
+                                            // Row 1: Title + Percentage
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                horizontalArrangement = Arrangement.SpaceBetween,
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Text(
+                                                    text = currentDisplayState.title,
+                                                    fontSize = 13.sp,
+                                                    fontWeight = FontWeight.SemiBold,
+                                                    color = if (isDark) Color.White else Color(0xFF111827),
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis,
+                                                    modifier = Modifier.weight(1f, fill = false)
+                                                )
+
+                                                if (currentDisplayState.progress >= 0) {
+                                                    Spacer(modifier = Modifier.width(6.dp))
+                                                    Text(
+                                                        text = "${currentDisplayState.progress}%",
+                                                        fontSize = 12.sp,
+                                                        fontWeight = FontWeight.Bold,
+                                                        color = MaterialTheme.colorScheme.primary
+                                                    )
+                                                }
+                                            }
+
+                                            Spacer(modifier = Modifier.height(2.5.dp))
+
+                                            // Row 2: Downloaded/Total MB + Speed
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                horizontalArrangement = Arrangement.SpaceBetween,
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                val sizeLabel = when {
+                                                    currentDisplayState.totalBytes > 0 ->
+                                                        "${AppToast.formatBytes(currentDisplayState.downloadedBytes)} / ${AppToast.formatBytes(currentDisplayState.totalBytes)}"
+                                                    currentDisplayState.downloadedBytes > 0 ->
+                                                        AppToast.formatBytes(currentDisplayState.downloadedBytes)
+                                                    else ->
+                                                        currentDisplayState.message ?: "Đang kết nối..."
+                                                }
+
+                                                Text(
+                                                    text = sizeLabel,
+                                                    fontSize = 11.sp,
+                                                    fontWeight = FontWeight.Normal,
+                                                    color = if (isDark) Color(0xFF9CA3AF) else Color(0xFF6B7280),
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis,
+                                                    modifier = Modifier.weight(1f, fill = false)
+                                                )
+
+                                                if (currentDisplayState.speedBytesPerSec > 0) {
+                                                    Spacer(modifier = Modifier.width(6.dp))
+                                                    Text(
+                                                        text = AppToast.formatSpeed(currentDisplayState.speedBytesPerSec),
+                                                        fontSize = 11.sp,
+                                                        fontWeight = FontWeight.SemiBold,
+                                                        color = MaterialTheme.colorScheme.primary
+                                                    )
+                                                }
+                                            }
+
+                                            Spacer(modifier = Modifier.height(6.dp))
+
+                                            // Modern Silky Smooth Progress Bar with Shimmer
+                                            SmoothLiveProgressBar(
+                                                progress = currentDisplayState.progress,
+                                                isDark = isDark
+                                            )
+                                        }
+                                    } else {
+                                        Column(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            verticalArrangement = Arrangement.Center
+                                        ) {
+                                            Text(
+                                                text = currentDisplayState.title,
+                                                fontSize = 13.5.sp,
+                                                fontWeight = FontWeight.SemiBold,
+                                                color = if (isDark) Color.White else Color(0xFF111827),
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+
+                                            if (!currentDisplayState.message.isNullOrBlank()) {
+                                                Spacer(modifier = Modifier.height(2.dp))
+                                                Text(
+                                                    text = currentDisplayState.message!!,
+                                                    fontSize = 11.5.sp,
+                                                    fontWeight = FontWeight.Normal,
+                                                    color = if (isDark) Color(0xFF9CA3AF) else Color(0xFF6B7280),
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
+                            // Close Button matching MEBIECO
+                            Box(
+                                modifier = Modifier
+                                    .padding(start = 4.dp, end = 2.dp)
+                                    .size(36.dp)
+                                    .clickable(
+                                        interactionSource = remember { MutableInteractionSource() },
+                                        indication = null
+                                    ) {
+                                        if (currentDisplayState.type == ToastType.PROGRESS && currentDisplayState.downloadId > 0) {
+                                            // Request confirmation before cancelling download
+                                            onCancelDownload?.invoke(currentDisplayState.downloadId)
+                                        } else {
+                                            startExitAnimation()
+                                        }
+                                    },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = CupertinoIcons.Outlined.Xmark,
+                                    contentDescription = "Close",
+                                    tint = if (isDark) Color(0xFF9CA3AF) else Color(0xFF6B7280),
+                                    modifier = Modifier.size(18.dp)
+                                )
                             }
                         }
                     }
                 }
-
-                // Content Row (Title, SubText, Progress Bar, Close Button) fading in during Phase 2
+            } else {
+                // Multi-Item Expanded Dynamic Toast (Mở rộng dài xuống theo chiều dọc)
                 if (expandProgress.value > 0.15f) {
-                    Row(
+                    Column(
                         modifier = Modifier
-                            .width(fullWidth - CIRCLE_SIZE)
-                            .padding(end = 14.dp)
-                            .graphicsLayer { alpha = contentAlpha },
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column(
-                            modifier = Modifier
-                                .weight(1f)
-                                .animateContentSize(
-                                    animationSpec = spring(
-                                        dampingRatio = 0.82f,
-                                        stiffness = 380f
-                                    )
+                            .fillMaxWidth()
+                            .graphicsLayer { alpha = contentAlpha }
+                            .animateContentSize(
+                                animationSpec = spring(
+                                    dampingRatio = 0.82f,
+                                    stiffness = 380f
                                 )
-                                .padding(vertical = 4.dp),
-                            verticalArrangement = Arrangement.Center
+                            )
+                            .padding(horizontal = 16.dp, vertical = 12.dp)
+                    ) {
+                        // Header Row: Spinning Indicator + "Đang tải X tệp..." + Total Speed + Cancel All 'X'
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Crossfade(
-                                targetState = currentDisplayState.type == ToastType.PROGRESS,
-                                animationSpec = tween(280),
-                                label = "ToastContentCrossfade"
-                            ) { isProgress ->
-                                if (isProgress) {
-                                    Column(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        verticalArrangement = Arrangement.Center
-                                    ) {
-                                        // Row 1: Title + Percentage
-                                        Row(
-                                            modifier = Modifier.fillMaxWidth(),
-                                            horizontalArrangement = Arrangement.SpaceBetween,
-                                            verticalAlignment = Alignment.CenterVertically
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                modifier = Modifier.weight(1f, fill = false)
+                            ) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(16.dp),
+                                    strokeWidth = 2.dp,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                                Text(
+                                    text = "Đang tải ${currentDisplayState.items.size} tệp...",
+                                    fontSize = 13.5.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (isDark) Color.White else Color(0xFF111827)
+                                )
+                            }
+
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                if (currentDisplayState.speedBytesPerSec > 0) {
+                                    Text(
+                                        text = AppToast.formatSpeed(currentDisplayState.speedBytesPerSec),
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                }
+
+                                // Cancel all button
+                                Box(
+                                    modifier = Modifier
+                                        .size(24.dp)
+                                        .clip(CircleShape)
+                                        .clickable(
+                                            interactionSource = remember { MutableInteractionSource() },
+                                            indication = null
                                         ) {
-                                            Text(
-                                                text = currentDisplayState.title,
-                                                fontSize = 13.sp,
-                                                fontWeight = FontWeight.SemiBold,
-                                                color = if (isDark) Color.White else Color(0xFF111827),
-                                                maxLines = 1,
-                                                overflow = TextOverflow.Ellipsis,
-                                                modifier = Modifier.weight(1f, fill = false)
-                                            )
-
-                                            if (currentDisplayState.progress >= 0) {
-                                                Spacer(modifier = Modifier.width(6.dp))
-                                                Text(
-                                                    text = "${currentDisplayState.progress}%",
-                                                    fontSize = 12.sp,
-                                                    fontWeight = FontWeight.Bold,
-                                                    color = MaterialTheme.colorScheme.primary
-                                                )
-                                            }
-                                        }
-
-                                        Spacer(modifier = Modifier.height(2.5.dp))
-
-                                        // Row 2: Downloaded/Total MB + Speed
-                                        Row(
-                                            modifier = Modifier.fillMaxWidth(),
-                                            horizontalArrangement = Arrangement.SpaceBetween,
-                                            verticalAlignment = Alignment.CenterVertically
-                                        ) {
-                                            val sizeLabel = when {
-                                                currentDisplayState.totalBytes > 0 ->
-                                                    "${AppToast.formatBytes(currentDisplayState.downloadedBytes)} / ${AppToast.formatBytes(currentDisplayState.totalBytes)}"
-                                                currentDisplayState.downloadedBytes > 0 ->
-                                                    AppToast.formatBytes(currentDisplayState.downloadedBytes)
-                                                else ->
-                                                    currentDisplayState.message ?: "Đang kết nối..."
-                                            }
-
-                                            Text(
-                                                text = sizeLabel,
-                                                fontSize = 11.sp,
-                                                fontWeight = FontWeight.Normal,
-                                                color = if (isDark) Color(0xFF9CA3AF) else Color(0xFF6B7280),
-                                                maxLines = 1,
-                                                overflow = TextOverflow.Ellipsis,
-                                                modifier = Modifier.weight(1f, fill = false)
-                                            )
-
-                                            if (currentDisplayState.speedBytesPerSec > 0) {
-                                                Spacer(modifier = Modifier.width(6.dp))
-                                                Text(
-                                                    text = AppToast.formatSpeed(currentDisplayState.speedBytesPerSec),
-                                                    fontSize = 11.sp,
-                                                    fontWeight = FontWeight.SemiBold,
-                                                    color = MaterialTheme.colorScheme.primary
-                                                )
-                                            }
-                                        }
-
-                                        Spacer(modifier = Modifier.height(6.dp))
-
-                                        // Modern Silky Smooth Progress Bar with Shimmer
-                                        SmoothLiveProgressBar(
-                                            progress = currentDisplayState.progress,
-                                            isDark = isDark
-                                        )
-                                    }
-                                } else {
-                                    Column(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        verticalArrangement = Arrangement.Center
-                                    ) {
-                                        Text(
-                                            text = currentDisplayState.title,
-                                            fontSize = 13.5.sp,
-                                            fontWeight = FontWeight.SemiBold,
-                                            color = if (isDark) Color.White else Color(0xFF111827),
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis
-                                        )
-
-                                        if (!currentDisplayState.message.isNullOrBlank()) {
-                                            Spacer(modifier = Modifier.height(2.dp))
-                                            Text(
-                                                text = currentDisplayState.message!!,
-                                                fontSize = 11.5.sp,
-                                                fontWeight = FontWeight.Normal,
-                                                color = if (isDark) Color(0xFF9CA3AF) else Color(0xFF6B7280),
-                                                maxLines = 1,
-                                                overflow = TextOverflow.Ellipsis
-                                            )
-                                        }
-                                    }
+                                            onCancelDownload?.invoke(0L)
+                                        },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = CupertinoIcons.Outlined.Xmark,
+                                        contentDescription = "Cancel All",
+                                        tint = if (isDark) Color(0xFF9CA3AF) else Color(0xFF6B7280),
+                                        modifier = Modifier.size(15.dp)
+                                    )
                                 }
                             }
                         }
 
-                        // Close Button matching MEBIECO
-                        Box(
-                            modifier = Modifier
-                                .padding(start = 4.dp, end = 2.dp)
-                                .size(36.dp)
-                                .clickable(
-                                    interactionSource = remember { MutableInteractionSource() },
-                                    indication = null
-                                ) {
-                                    if (currentDisplayState.type == ToastType.PROGRESS && currentDisplayState.downloadId > 0) {
-                                        // Request confirmation before cancelling download
-                                        onCancelDownload?.invoke(currentDisplayState.downloadId)
-                                    } else {
-                                        startExitAnimation()
-                                    }
-                                },
-                            contentAlignment = Alignment.Center
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        // Individual Item List
+                        Column(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
-                            Icon(
-                                imageVector = CupertinoIcons.Outlined.Xmark,
-                                contentDescription = "Close",
-                                tint = if (isDark) Color(0xFF9CA3AF) else Color(0xFF6B7280),
-                                modifier = Modifier.size(18.dp)
-                            )
+                            currentDisplayState.items.forEach { item ->
+                                Column(
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Text(
+                                            text = item.title,
+                                            fontSize = 12.5.sp,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = if (isDark) Color(0xFFE5E7EB) else Color(0xFF1F2937),
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis,
+                                            modifier = Modifier.weight(1f, fill = false)
+                                        )
+
+                                        Spacer(modifier = Modifier.width(8.dp))
+
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                        ) {
+                                            val percentLabel = if (item.progress >= 0) "${item.progress}%" else "Đang tải..."
+                                            val sizeLabel = if (item.totalBytes > 0) {
+                                                "${AppToast.formatBytes(item.downloadedBytes)} / ${AppToast.formatBytes(item.totalBytes)}"
+                                            } else {
+                                                AppToast.formatBytes(item.downloadedBytes)
+                                            }
+
+                                            Text(
+                                                text = "$sizeLabel ($percentLabel)",
+                                                fontSize = 10.5.sp,
+                                                fontWeight = FontWeight.Normal,
+                                                color = if (isDark) Color(0xFF9CA3AF) else Color(0xFF6B7280)
+                                            )
+
+                                            // Item Cancel Button
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(20.dp)
+                                                    .clip(CircleShape)
+                                                    .clickable(
+                                                        interactionSource = remember { MutableInteractionSource() },
+                                                        indication = null
+                                                    ) {
+                                                        onCancelDownload?.invoke(item.downloadId)
+                                                    },
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Icon(
+                                                    imageVector = CupertinoIcons.Outlined.Xmark,
+                                                    contentDescription = "Cancel item",
+                                                    tint = if (isDark) Color(0xFF9CA3AF).copy(alpha = 0.7f) else Color(0xFF6B7280).copy(alpha = 0.7f),
+                                                    modifier = Modifier.size(13.dp)
+                                                )
+                                            }
+                                        }
+                                    }
+
+                                    Spacer(modifier = Modifier.height(4.dp))
+
+                                    // Item Progress Bar
+                                    SmoothLiveProgressBar(
+                                        progress = item.progress,
+                                        isDark = isDark
+                                    )
+                                }
+                            }
                         }
+                    }
+                } else {
+                    // Phase 1 Droplet: Pure 48x48 circle with centered spinner before expanding
+                    Box(
+                        modifier = Modifier.size(CIRCLE_SIZE),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(24.dp),
+                            strokeWidth = 2.5.dp,
+                            color = MaterialTheme.colorScheme.primary
+                        )
                     }
                 }
             }
