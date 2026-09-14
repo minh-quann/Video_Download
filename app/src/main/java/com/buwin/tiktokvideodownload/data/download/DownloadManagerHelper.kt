@@ -49,6 +49,7 @@ class DownloadManagerHelper(private val context: Context) {
     private val prefs = context.getSharedPreferences("tiktok_downloads_prefs", Context.MODE_PRIVATE)
     private val notificationHelper = NotificationHelper(context)
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    private val firestoreSync = com.buwin.tiktokvideodownload.data.sync.FirestoreSyncManager()
 
     // High performance OkHttpClient supporting concurrent parallel connections
     private val okHttpClient: OkHttpClient = OkHttpClient.Builder()
@@ -485,7 +486,8 @@ class DownloadManagerHelper(private val context: Context) {
     }
 
     /**
-     * Updates an existing record with its completed file path and latest timestamp.
+     * Updates an existing record with its completed file path and latest timestamp,
+     * and syncs it with Cloud Firestore if signed in.
      */
     private fun updateRecordCompleted(downloadId: Long, finalFilePath: String) {
         try {
@@ -493,15 +495,19 @@ class DownloadManagerHelper(private val context: Context) {
             val index = records.indexOfFirst { it.downloadId == downloadId }
             if (index != -1) {
                 val old = records[index]
-                records[index] = old.copy(filePath = finalFilePath, timestamp = System.currentTimeMillis())
+                val updated = old.copy(filePath = finalFilePath, timestamp = System.currentTimeMillis())
+                records[index] = updated
                 saveAllRecords(records)
+                scope.launch {
+                    firestoreSync.syncRecordToCloud(updated)
+                }
             }
         } catch (_: Exception) {
         }
     }
 
     /**
-     * Removes an uncompleted or cancelled record from history and storage.
+     * Removes an uncompleted or cancelled record from history, storage, and cloud.
      */
     private fun removeHistoryRecord(downloadId: Long) {
         try {
@@ -519,6 +525,10 @@ class DownloadManagerHelper(private val context: Context) {
                 } else if (target.filePath.isNotEmpty()) {
                     val f = File(target.filePath)
                     if (f.exists()) f.delete()
+                }
+
+                scope.launch {
+                    firestoreSync.deleteRecordFromCloud(downloadId)
                 }
             }
         } catch (_: Exception) {
@@ -680,10 +690,43 @@ class DownloadManagerHelper(private val context: Context) {
     }
 
     /**
-     * Clears all download history records.
+     * Clears all download history records locally and from Cloud Firestore.
      */
     fun clearHistory() {
         prefs.edit().remove("history_json").apply()
+        scope.launch {
+            firestoreSync.clearCloudHistory()
+        }
+    }
+
+    /**
+     * Synchronizes local download history with Cloud Firestore.
+     * Merges records from both sources and backfills missing records to cloud.
+     */
+    suspend fun syncCloudHistory(): List<DownloadRecord> {
+        val cloudRecords = firestoreSync.fetchCloudHistory()
+        val localRecords = getHistory()
+
+        val recordMap = mutableMapOf<Long, DownloadRecord>()
+        cloudRecords.forEach { recordMap[it.downloadId] = it }
+        localRecords.forEach { local ->
+            val existing = recordMap[local.downloadId]
+            if (existing == null) {
+                recordMap[local.downloadId] = local
+            } else if (local.filePath.isNotEmpty() && existing.filePath.isEmpty()) {
+                recordMap[local.downloadId] = existing.copy(filePath = local.filePath)
+            }
+        }
+
+        val merged = recordMap.values.sortedByDescending { it.timestamp }
+        saveAllRecords(merged)
+
+        // Upload any local-only records to cloud
+        merged.forEach { record ->
+            firestoreSync.syncRecordToCloud(record)
+        }
+
+        return merged
     }
 
     /**

@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "422942258389",
+    "project_id": "video-download-835b5",
+    "storage_bucket": "video-download-835b5.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:422942258389:android:5121d8ae8df8fd69df5e5c",
+        "android_client_info": {
+          "package_name": "com.buwin.tiktokvideodownload"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "422942258389-0e1jq2qna6l7euj62h02h2o4r8reougq.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.buwin.tiktokvideodownload",
+            "certificate_hash": "c79758544d6f98290342c028b9838c8eceaf19d9"
+          }
+        },
+        {
+          "client_id": "422942258389-p7h8h89go3di1gmqgtk2s4lclrtnqeu3.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAqVzIK1fLmTZmsNkGsmxHuG1AKbw86m3k"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "422942258389-p7h8h89go3di1gmqgtk2s4lclrtnqeu3.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -62,6 +62,7 @@ class MainActivity : ComponentActivity() {
     private val tiktokService by lazy { TikTokService() }
     private val downloadHelper by lazy { DownloadManagerHelper(this) }
     private val themePreferences by lazy { ThemePreferences(this) }
+    private val authManager by lazy { com.buwin.tiktokvideodownload.data.auth.AuthManager(this) }
     private var sharedUrlState by mutableStateOf<String?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -86,6 +87,7 @@ class MainActivity : ComponentActivity() {
                     tiktokService = tiktokService,
                     downloadHelper = downloadHelper,
                     themePreferences = themePreferences,
+                    authManager = authManager,
                     isDark = isDark,
                     sharedUrl = sharedUrlState
                 )
@@ -113,6 +115,7 @@ fun MainApp(
     tiktokService: TikTokService,
     downloadHelper: DownloadManagerHelper,
     themePreferences: ThemePreferences,
+    authManager: com.buwin.tiktokvideodownload.data.auth.AuthManager,
     isDark: Boolean,
     sharedUrl: String?
 ) {
@@ -122,16 +125,13 @@ fun MainApp(
     var activePlayingRecord by remember { mutableStateOf<DownloadRecord?>(null) }
     var pendingCancelDownloadId by remember { mutableStateOf<Long?>(null) }
 
-    // Preserve HomeScreen state when switching tabs
-    var homeInputUrl by remember { mutableStateOf(sharedUrl ?: "") }
-    var homeIsLoading by remember { mutableStateOf(false) }
-    var homeVideoInfo by remember { mutableStateOf<com.buwin.tiktokvideodownload.data.model.TikTokVideoInfo?>(null) }
-    val homeScrollState = androidx.compose.foundation.rememberScrollState()
-
-    androidx.compose.runtime.LaunchedEffect(sharedUrl) {
-        if (!sharedUrl.isNullOrBlank()) {
-            homeInputUrl = sharedUrl
-        }
+    // Remember HomeViewModel to preserve state across tab switches
+    val homeViewModel = remember {
+        com.buwin.tiktokvideodownload.ui.screens.home.viewmodel.HomeViewModel(
+            tiktokService = tiktokService,
+            downloadHelper = downloadHelper,
+            themePreferences = themePreferences
+        )
     }
 
     val backgroundColor = if (isDark) BackgroundDark else BackgroundLight
@@ -149,19 +149,14 @@ fun MainApp(
                     tiktokService = tiktokService,
                     downloadHelper = downloadHelper,
                     themePreferences = themePreferences,
-                    inputUrl = homeInputUrl,
-                    onInputUrlChange = { homeInputUrl = it },
-                    isLoading = homeIsLoading,
-                    onIsLoadingChange = { homeIsLoading = it },
-                    videoInfo = homeVideoInfo,
-                    onVideoInfoChange = { homeVideoInfo = it },
-                    scrollState = homeScrollState,
                     sharedUrl = sharedUrl,
-                    backdrop = localBackdrop
+                    backdrop = localBackdrop,
+                    viewModel = homeViewModel
                 )
                 1 -> HistoryScreen(
                     backdrop = localBackdrop,
                     downloadHelper = downloadHelper,
+                    authManager = authManager,
                     onPlayRecord = { record ->
                         activePlayingRecord = record
                     }
@@ -169,7 +164,8 @@ fun MainApp(
                 2 -> SettingsScreen(
                     backdrop = localBackdrop,
                     themePreferences = themePreferences,
-                    downloadHelper = downloadHelper
+                    downloadHelper = downloadHelper,
+                    authManager = authManager
                 )
             }
         }

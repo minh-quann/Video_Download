@@ -1,202 +1,118 @@
 package com.buwin.tiktokvideodownload.ui.screens
 
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import coil.compose.AsyncImage
+import com.buwin.tiktokvideodownload.data.auth.AuthManager
 import com.buwin.tiktokvideodownload.data.download.DownloadManagerHelper
 import com.buwin.tiktokvideodownload.data.model.DownloadRecord
+import com.buwin.tiktokvideodownload.data.repository.HistoryRepository
 import com.buwin.tiktokvideodownload.ui.components.liquid.LiquidRoundButton
 import com.buwin.tiktokvideodownload.ui.components.liquid.LiquidTopBar
+import com.buwin.tiktokvideodownload.ui.screens.history.components.HistoryCloudBanner
+import com.buwin.tiktokvideodownload.ui.screens.history.components.HistoryDateGroupCard
+import com.buwin.tiktokvideodownload.ui.screens.history.components.HistoryEmptyState
+import com.buwin.tiktokvideodownload.ui.screens.history.viewmodel.HistoryViewModel
 import com.buwin.tiktokvideodownload.ui.theme.LocalIsDark
 import com.kyant.backdrop.Backdrop
 import com.kyant.backdrop.backdrops.layerBackdrop
 import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import io.github.alexzhirkevich.cupertino.icons.CupertinoIcons
 import io.github.alexzhirkevich.cupertino.icons.filled.Folder
-import io.github.alexzhirkevich.cupertino.icons.filled.Play
 import io.github.alexzhirkevich.cupertino.icons.filled.Trash
-import io.github.alexzhirkevich.cupertino.icons.filled.Video
-import io.github.alexzhirkevich.cupertino.icons.outlined.MusicNote
-import java.text.SimpleDateFormat
-import java.util.Calendar
-import java.util.Date
-import java.util.Locale
-
-/**
- * Represents a collection of downloaded records grouped by calendar date.
- */
-private data class HistoryDateGroup(
-    val dateKey: String,
-    val dateTitle: String,
-    val items: List<DownloadRecord>
-)
+import io.github.alexzhirkevich.cupertino.icons.outlined.ArrowClockwise
 
 /**
  * Screen displaying the history of downloaded TikTok and Facebook media files,
- * grouped by date with 26dp rounded corner cards and date headers outside the cards.
+ * refactored into Clean Architecture with separated components, repository, and ViewModel.
  */
 @Composable
 fun HistoryScreen(
     backdrop: Backdrop,
     downloadHelper: DownloadManagerHelper,
+    authManager: AuthManager,
     onPlayRecord: (DownloadRecord) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    viewModel: HistoryViewModel = remember {
+        HistoryViewModel(
+            historyRepository = HistoryRepository(downloadHelper),
+            authManager = authManager
+        )
+    }
 ) {
-    var historyList by remember { mutableStateOf(downloadHelper.getHistory()) }
     val isDark = LocalIsDark.current
     val contentBackdrop = rememberLayerBackdrop()
+    val uiState by viewModel.uiState.collectAsState()
+
+    // Refresh history when screen becomes active
+    LaunchedEffect(Unit) {
+        viewModel.loadLocalHistory()
+    }
 
     // Card styling matching iOS Inset Grouped / Liquid design
     val cardBackground = if (isDark) Color(0xFF1C1C1E) else Color.White
     val cardBorderColor = if (isDark) Color(0xFF2C2C2E) else Color(0xFFF0F0F2)
     val dividerColor = if (isDark) Color(0xFF2C2C2E) else Color(0xFFF2F2F7)
 
-    // Refresh history list whenever screen becomes active
-    LaunchedEffect(Unit) {
-        historyList = downloadHelper.getHistory()
-    }
-
-    // Group items chronologically by date
-    val groupedHistory = remember(historyList) {
-        val dayFormat = SimpleDateFormat("yyyyMMdd", Locale.getDefault())
-        val todayCal = Calendar.getInstance()
-        val yesterdayCal = Calendar.getInstance().apply { add(Calendar.DAY_OF_YEAR, -1) }
-        val todayKey = dayFormat.format(todayCal.time)
-        val yesterdayKey = dayFormat.format(yesterdayCal.time)
-
-        historyList
-            .groupBy { record ->
-                if (record.timestamp > 0) {
-                    dayFormat.format(Date(record.timestamp))
-                } else {
-                    todayKey
-                }
-            }
-            .map { (dateKey, items) ->
-                val firstTimestamp = items.firstOrNull { it.timestamp > 0 }?.timestamp ?: System.currentTimeMillis()
-                val fullDateStr = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).format(Date(firstTimestamp))
-                val title = when (dateKey) {
-                    todayKey -> "Hôm nay • $fullDateStr"
-                    yesterdayKey -> "Hôm qua • $fullDateStr"
-                    else -> fullDateStr
-                }
-                HistoryDateGroup(
-                    dateKey = dateKey,
-                    dateTitle = title,
-                    items = items
-                )
-            }
-    }
-
     Box(modifier = modifier.fillMaxSize()) {
-        if (historyList.isEmpty()) {
-            Box(
-                modifier = Modifier
-                    .layerBackdrop(contentBackdrop)
-                    .fillMaxSize()
-                    .padding(bottom = 100.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(
-                        text = "Chưa có lượt tải nào",
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Spacer(modifier = Modifier.height(6.dp))
-                    Text(
-                        text = "Hãy dán link video TikTok hoặc Facebook để bắt đầu tải nhé!",
-                        fontSize = 13.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-                    )
-                }
-            }
+        if (uiState.records.isEmpty()) {
+            HistoryEmptyState(
+                contentBackdrop = contentBackdrop,
+                showCloudPrompt = uiState.currentUser == null,
+                onSignInClick = { viewModel.signInWithGoogle() },
+                isDark = isDark
+            )
         } else {
             LazyColumn(
                 modifier = Modifier
                     .layerBackdrop(contentBackdrop)
                     .fillMaxSize()
                     .padding(horizontal = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(20.dp)
+                verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 item(key = "header_clearance") {
                     Spacer(modifier = Modifier.height(116.dp))
                 }
 
-                items(groupedHistory, key = { it.dateKey }) { group ->
-                    Column(modifier = Modifier.fillMaxWidth()) {
-                        // Date header outside the card
-                        Text(
-                            text = group.dateTitle,
-                            fontSize = 13.5.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = if (isDark) Color(0xFF9CA3AF) else Color(0xFF6B7280),
-                            modifier = Modifier.padding(start = 6.dp, bottom = 8.dp)
+                // Cloud backup banner when not signed in
+                if (uiState.currentUser == null) {
+                    item(key = "cloud_sync_banner") {
+                        HistoryCloudBanner(
+                            onClickSignIn = { viewModel.signInWithGoogle() },
+                            isDark = isDark
                         )
-
-                        // Large grouped card with 26dp rounded corners
-                        Card(
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(26.dp),
-                            colors = CardDefaults.cardColors(containerColor = cardBackground),
-                            border = BorderStroke(1.dp, cardBorderColor)
-                        ) {
-                            Column(modifier = Modifier.fillMaxWidth()) {
-                                group.items.forEachIndexed { index, item ->
-                                    HistoryItemRow(
-                                        record = item,
-                                        backdrop = backdrop,
-                                        onOpen = { onPlayRecord(item) },
-                                        isDark = isDark
-                                    )
-                                    if (index < group.items.size - 1) {
-                                        HorizontalDivider(
-                                            modifier = Modifier.padding(start = 82.dp, end = 16.dp),
-                                            thickness = 0.6.dp,
-                                            color = dividerColor
-                                        )
-                                    }
-                                }
-                            }
-                        }
                     }
+                }
+
+                // Grouped download cards by date
+                items(uiState.groups, key = { it.dateKey }) { group ->
+                    HistoryDateGroupCard(
+                        group = group,
+                        backdrop = backdrop,
+                        onOpenRecord = onPlayRecord,
+                        isDark = isDark,
+                        cardBackground = cardBackground,
+                        cardBorderColor = cardBorderColor,
+                        dividerColor = dividerColor
+                    )
                 }
 
                 item(key = "footer_clearance") {
@@ -205,17 +121,46 @@ fun HistoryScreen(
             }
         }
 
-        // Shared Progressive Blur Header (Mờ dần, no icon)
+        // Shared Progressive Blur Header
         LiquidTopBar(
             backdrop = contentBackdrop,
             modifier = Modifier.align(Alignment.TopCenter),
             title = "Lịch sử tải về",
-            subtitle = "${historyList.size} tệp đã lưu",
+            subtitle = if (uiState.currentUser != null) {
+                "${uiState.records.size} tệp • Đã đồng bộ"
+            } else {
+                "${uiState.records.size} tệp đã lưu"
+            },
             isDark = isDark,
             actions = {
+                // Cloud Sync Button when logged in
+                if (uiState.currentUser != null) {
+                    LiquidRoundButton(
+                        onClick = { viewModel.syncWithCloud(showToast = true) },
+                        backdrop = contentBackdrop,
+                        size = 40.dp,
+                        surfaceColor = MaterialTheme.colorScheme.primary.copy(alpha = if (isDark) 0.22f else 0.15f)
+                    ) {
+                        if (uiState.isSyncing) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(16.dp),
+                                strokeWidth = 2.dp,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        } else {
+                            Icon(
+                                imageVector = CupertinoIcons.Outlined.ArrowClockwise,
+                                contentDescription = "Sync Cloud",
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    }
+                }
+
                 // Open Downloads Folder Button
                 LiquidRoundButton(
-                    onClick = { downloadHelper.openDownloadsFolder() },
+                    onClick = { viewModel.openDownloadsFolder() },
                     backdrop = contentBackdrop,
                     size = 40.dp,
                     surfaceColor = if (isDark) Color.White.copy(0.18f) else Color.White.copy(0.75f)
@@ -229,12 +174,9 @@ fun HistoryScreen(
                 }
 
                 // Clear History Button
-                if (historyList.isNotEmpty()) {
+                if (uiState.records.isNotEmpty()) {
                     LiquidRoundButton(
-                        onClick = {
-                            downloadHelper.clearHistory()
-                            historyList = emptyList()
-                        },
+                        onClick = { viewModel.clearHistory() },
                         backdrop = contentBackdrop,
                         size = 40.dp,
                         surfaceColor = Color(0xFFEF4444).copy(alpha = 0.2f)
@@ -249,105 +191,5 @@ fun HistoryScreen(
                 }
             }
         )
-    }
-}
-
-/**
- * Standard item row inside the 26dp grouped card.
- */
-@Composable
-private fun HistoryItemRow(
-    record: DownloadRecord,
-    backdrop: Backdrop,
-    onOpen: () -> Unit,
-    isDark: Boolean
-) {
-    val timeText = remember(record.timestamp) {
-        if (record.timestamp > 0) {
-            val sdf = SimpleDateFormat("HH:mm", Locale.getDefault())
-            sdf.format(Date(record.timestamp))
-        } else {
-            ""
-        }
-    }
-
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { onOpen() }
-            .padding(horizontal = 14.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        // Thumbnail
-        Box(
-            modifier = Modifier
-                .size(56.dp)
-                .clip(RoundedCornerShape(14.dp))
-                .background(if (isDark) Color(0xFF2C2C2E) else Color(0xFFE5E7EB)),
-            contentAlignment = Alignment.Center
-        ) {
-            if (record.coverUrl.isNotEmpty()) {
-                AsyncImage(
-                    model = record.coverUrl,
-                    contentDescription = null,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize()
-                )
-            } else {
-                Icon(
-                    imageVector = if (record.fileExtension == "mp3") CupertinoIcons.Outlined.MusicNote else CupertinoIcons.Filled.Video,
-                    contentDescription = null,
-                    tint = if (isDark) Color.White else Color(0xFF4B5563),
-                    modifier = Modifier.size(26.dp)
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.width(12.dp))
-
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = record.title,
-                fontWeight = FontWeight.SemiBold,
-                fontSize = 14.sp,
-                color = if (isDark) Color.White else Color(0xFF111827),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-            Spacer(modifier = Modifier.height(2.dp))
-            Text(
-                text = "${record.author} • ${record.formatTitle}",
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Medium,
-                color = MaterialTheme.colorScheme.primary,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-            if (timeText.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(2.dp))
-                Text(
-                    text = timeText,
-                    fontSize = 11.5.sp,
-                    color = if (isDark) Color(0xFF9CA3AF) else Color(0xFF6B7280)
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.width(8.dp))
-
-        // Liquid Round Button to Play / Open
-        LiquidRoundButton(
-            onClick = onOpen,
-            backdrop = backdrop,
-            size = 38.dp,
-            surfaceColor = MaterialTheme.colorScheme.primary.copy(alpha = if (isDark) 0.25f else 0.15f)
-        ) {
-            Icon(
-                imageVector = CupertinoIcons.Filled.Play,
-                contentDescription = "Open",
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(18.dp)
-            )
-        }
     }
 }
