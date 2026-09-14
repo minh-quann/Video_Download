@@ -14,9 +14,11 @@ import java.util.concurrent.TimeUnit
 import java.util.regex.Pattern
 
 /**
- * Service responsible for parsing TikTok URLs and extracting direct download streams.
+ * Service responsible for parsing TikTok and Facebook URLs and extracting direct download streams.
  */
 class TikTokService {
+
+    private val facebookService = FacebookService()
 
     private val client = OkHttpClient.Builder()
         .connectTimeout(15, TimeUnit.SECONDS)
@@ -27,13 +29,21 @@ class TikTokService {
     private val urlPattern = Pattern.compile("https?://[^\\s<>\"'\\[\\]{}|\\\\^`]+")
 
     /**
-     * Extracts a valid URL from freeform text (such as clipboard content or share intent).
+     * Checks if the given URL belongs to Facebook domains.
+     */
+    fun isFacebookUrl(url: String): Boolean {
+        return facebookService.isFacebookUrl(url)
+    }
+
+    /**
+     * Extracts a valid supported URL from freeform text (such as clipboard content or share intent).
+     * Supports both TikTok and Facebook URLs.
      */
     fun extractUrl(text: String): String? {
         val matcher = urlPattern.matcher(text)
         while (matcher.find()) {
             val url = matcher.group().trimEnd('.', ',', ';', '!', '?', ')', ']', '"', '\'')
-            if (url.contains("tiktok.com") || url.contains("douyin.com")) {
+            if (url.contains("tiktok.com") || url.contains("douyin.com") || isFacebookUrl(url)) {
                 return url
             }
         }
@@ -41,13 +51,18 @@ class TikTokService {
     }
 
     /**
-     * Fetches video information and available download streams for the given TikTok link.
+     * Fetches video information and available download streams for the given TikTok or Facebook link.
      */
     suspend fun fetchVideoInfo(rawUrl: String): Result<TikTokVideoInfo> = withContext(Dispatchers.IO) {
         try {
             val cleanUrl = extractUrl(rawUrl) ?: rawUrl.trim()
             if (cleanUrl.isEmpty()) {
-                return@withContext Result.failure(IllegalArgumentException("Invalid TikTok URL"))
+                return@withContext Result.failure(IllegalArgumentException("Đường link không hợp lệ"))
+            }
+
+            // Route to FacebookService if URL is from Facebook
+            if (isFacebookUrl(cleanUrl)) {
+                return@withContext facebookService.fetchVideoInfo(cleanUrl)
             }
 
             val apiUrl = "https://www.tikwm.com/api/"

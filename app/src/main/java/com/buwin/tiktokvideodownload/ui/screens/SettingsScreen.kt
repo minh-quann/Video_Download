@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -42,10 +41,14 @@ import com.buwin.tiktokvideodownload.data.download.DownloadManagerHelper
 import com.buwin.tiktokvideodownload.ui.components.liquid.LiquidMenuItem
 import com.buwin.tiktokvideodownload.ui.components.liquid.LiquidOptionsMenu
 import com.buwin.tiktokvideodownload.ui.components.liquid.LiquidToggle
+import com.buwin.tiktokvideodownload.ui.components.liquid.LiquidTopBar
+import com.buwin.tiktokvideodownload.ui.components.toast.AppToast
 import com.buwin.tiktokvideodownload.ui.theme.AppThemeMode
 import com.buwin.tiktokvideodownload.ui.theme.LocalIsDark
 import com.buwin.tiktokvideodownload.ui.theme.ThemePreferences
 import com.kyant.backdrop.Backdrop
+import com.kyant.backdrop.backdrops.layerBackdrop
+import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import io.github.alexzhirkevich.cupertino.icons.CupertinoIcons
 import io.github.alexzhirkevich.cupertino.icons.outlined.ChevronForward
 import io.github.alexzhirkevich.cupertino.icons.outlined.Folder
@@ -56,11 +59,7 @@ import io.github.alexzhirkevich.cupertino.icons.outlined.Sparkles
 import io.github.alexzhirkevich.cupertino.icons.outlined.Trash
 
 /**
- * Minimalist Apple-style Settings Screen matching user specification:
- * - Simple clean sections with sentence-case titles.
- * - 26dp rounded corner cards.
- * - Morphing Liquid Glass More Button (...) on the header that smoothly expands in place.
- * - Seamless integration with Liquid Options Menu & Liquid Toggle.
+ * Minimalist Apple-style Settings Screen featuring the shared progressive blur header.
  */
 @Composable
 fun SettingsScreen(
@@ -71,6 +70,8 @@ fun SettingsScreen(
 ) {
     val context = LocalContext.current
     val isDark = LocalIsDark.current
+    val contentBackdrop = rememberLayerBackdrop()
+    val scrollState = rememberScrollState()
 
     // State for Options Menu & Auto-paste toggle
     var showThemeOptionsMenu by remember { mutableStateOf(false) }
@@ -115,19 +116,13 @@ fun SettingsScreen(
     Box(modifier = modifier.fillMaxSize()) {
         Column(
             modifier = Modifier
+                .layerBackdrop(contentBackdrop)
                 .fillMaxSize()
-                .statusBarsPadding()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp, vertical = 16.dp)
+                .verticalScroll(scrollState)
+                .padding(horizontal = 16.dp)
         ) {
-            // Header: Title
-            Text(
-                text = "Cài đặt",
-                fontSize = 28.sp,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onBackground,
-                modifier = Modifier.padding(start = 4.dp, top = 8.dp, bottom = 18.dp)
-            )
+            // Clearance for the pinned progressive blur header
+            Spacer(modifier = Modifier.height(116.dp))
 
             // ------------------------------------------
             // SECTION 1: TIỆN ÍCH
@@ -230,7 +225,7 @@ fun SettingsScreen(
                     SimpleSettingsRow(
                         icon = CupertinoIcons.Outlined.Folder,
                         title = "Thư mục lưu trữ",
-                        trailingText = "TikTokDownloads",
+                        trailingText = "Downloads",
                         chevronColor = chevronColor,
                         onClick = { downloadHelper.openDownloadsFolder() }
                     )
@@ -247,7 +242,7 @@ fun SettingsScreen(
                         chevronColor = chevronColor,
                         onClick = {
                             downloadHelper.clearHistory()
-                            Toast.makeText(context, "Đã xóa toàn bộ lịch sử tải về", Toast.LENGTH_SHORT).show()
+                            AppToast.showSuccess("Đã xóa lịch sử", "Toàn bộ lịch sử tải về đã được xóa sạch")
                         }
                     )
                 }
@@ -295,8 +290,17 @@ fun SettingsScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(110.dp))
+            Spacer(modifier = Modifier.height(120.dp))
         }
+
+        // Shared Progressive Blur Header (Mờ dần, no icon)
+        LiquidTopBar(
+            backdrop = contentBackdrop,
+            modifier = Modifier.align(Alignment.TopCenter),
+            title = "Cài đặt",
+            subtitle = "Tùy chọn ứng dụng & giao diện",
+            isDark = isDark
+        )
 
         // Options Menu Dialog overlay
         LiquidOptionsMenu(

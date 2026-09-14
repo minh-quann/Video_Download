@@ -48,6 +48,8 @@ import com.buwin.tiktokvideodownload.ui.theme.BackgroundDark
 import com.buwin.tiktokvideodownload.ui.theme.BackgroundLight
 import com.buwin.tiktokvideodownload.ui.theme.ThemePreferences
 import com.buwin.tiktokvideodownload.ui.theme.TiktokVideoDownloadTheme
+import android.os.Build
+import com.buwin.tiktokvideodownload.ui.components.toast.WaterdropToast
 import com.kyant.backdrop.backdrops.layerBackdrop
 import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 
@@ -62,6 +64,11 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         handleIncomingIntent(intent)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), 101)
+            }
+        }
 
         setContent {
             val isDark = when (themePreferences.currentThemeMode) {
@@ -232,5 +239,11 @@ fun MainApp(
                 )
             }
         }
+
+        // Authentic iOS Waterdrop Dynamic Island Toast floating over entire app
+        WaterdropToast(
+            isDark = isDark,
+            modifier = Modifier.align(Alignment.TopCenter)
+        )
     }
 }

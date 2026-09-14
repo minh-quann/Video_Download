@@ -144,7 +144,7 @@ fun VideoInfoCard(
                         model = ImageRequest.Builder(LocalContext.current)
                             .data(info.coverUrl)
                             .crossfade(true)
-                            .setHeader("Referer", "https://www.tikwm.com/")
+                            .setHeader("Referer", if (info.coverUrl.contains("tikwm.com")) "https://www.tikwm.com/" else "https://www.facebook.com/")
                             .setHeader("User-Agent", "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36")
                             .build(),
                         contentDescription = "Thumbnail",
@@ -209,14 +209,31 @@ fun VideoInfoCard(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        AsyncImage(
-                            model = info.authorAvatarUrl,
-                            contentDescription = "Avatar",
-                            modifier = Modifier
-                                .size(32.dp)
-                                .clip(CircleShape)
-                                .background(MaterialTheme.colorScheme.surface)
-                        )
+                        if (info.authorAvatarUrl.isNotEmpty()) {
+                            AsyncImage(
+                                model = info.authorAvatarUrl,
+                                contentDescription = "Avatar",
+                                modifier = Modifier
+                                    .size(32.dp)
+                                    .clip(CircleShape)
+                                    .background(MaterialTheme.colorScheme.surface)
+                            )
+                        } else {
+                            Box(
+                                modifier = Modifier
+                                    .size(32.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(0xFF1877F2)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = CupertinoIcons.Filled.Play,
+                                    contentDescription = null,
+                                    tint = Color.White,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+                        }
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
                                 text = info.authorNickname,

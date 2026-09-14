@@ -1,7 +1,6 @@
 package com.buwin.tiktokvideodownload.ui.screens
 
 import androidx.compose.foundation.background
-import com.buwin.tiktokvideodownload.ui.theme.LocalIsDark
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -12,15 +11,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import io.github.alexzhirkevich.cupertino.icons.CupertinoIcons
-import io.github.alexzhirkevich.cupertino.icons.filled.*
-import io.github.alexzhirkevich.cupertino.icons.outlined.*
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -44,13 +38,24 @@ import coil.compose.AsyncImage
 import com.buwin.tiktokvideodownload.data.download.DownloadManagerHelper
 import com.buwin.tiktokvideodownload.data.model.DownloadRecord
 import com.buwin.tiktokvideodownload.ui.components.liquid.LiquidRoundButton
+import com.buwin.tiktokvideodownload.ui.components.liquid.LiquidTopBar
+import com.buwin.tiktokvideodownload.ui.theme.LocalIsDark
 import com.kyant.backdrop.Backdrop
+import com.kyant.backdrop.backdrops.layerBackdrop
+import com.kyant.backdrop.backdrops.rememberLayerBackdrop
+import io.github.alexzhirkevich.cupertino.icons.CupertinoIcons
+import io.github.alexzhirkevich.cupertino.icons.filled.Folder
+import io.github.alexzhirkevich.cupertino.icons.filled.Play
+import io.github.alexzhirkevich.cupertino.icons.filled.Trash
+import io.github.alexzhirkevich.cupertino.icons.filled.Video
+import io.github.alexzhirkevich.cupertino.icons.outlined.MusicNote
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
 /**
- * Screen displaying the history of downloaded TikTok media files.
+ * Screen displaying the history of downloaded TikTok and Facebook media files,
+ * featuring the shared progressive blur header.
  */
 @Composable
 fun HistoryScreen(
@@ -60,76 +65,13 @@ fun HistoryScreen(
 ) {
     var historyList by remember { mutableStateOf(downloadHelper.getHistory()) }
     val isDark = LocalIsDark.current
+    val contentBackdrop = rememberLayerBackdrop()
 
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .statusBarsPadding()
-            .padding(horizontal = 20.dp, vertical = 16.dp)
-    ) {
-        // Header with Liquid Round Buttons
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 16.dp, bottom = 20.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Column {
-                Text(
-                    text = "Lịch sử tải về",
-                    fontSize = 24.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onBackground
-                )
-                Text(
-                    text = "${historyList.size} tệp đã lưu",
-                    fontSize = 13.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                // Open Downloads Folder Button
-                LiquidRoundButton(
-                    onClick = { downloadHelper.openDownloadsFolder() },
-                    backdrop = backdrop,
-                    size = 44.dp,
-                    surfaceColor = if (isDark) Color.White.copy(0.18f) else Color.White.copy(0.75f)
-                ) {
-                    Icon(
-                        imageVector = CupertinoIcons.Filled.Folder,
-                        contentDescription = "Open Folder",
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
-
-                // Clear History Button
-                if (historyList.isNotEmpty()) {
-                    LiquidRoundButton(
-                        onClick = {
-                            downloadHelper.clearHistory()
-                            historyList = emptyList()
-                        },
-                        backdrop = backdrop,
-                        size = 44.dp,
-                        surfaceColor = Color(0xFFEF4444).copy(alpha = 0.2f)
-                    ) {
-                        Icon(
-                            imageVector = CupertinoIcons.Filled.Trash,
-                            contentDescription = "Clear History",
-                            tint = Color(0xFFEF4444),
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-                }
-            }
-        }
-
+    Box(modifier = modifier.fillMaxSize()) {
         if (historyList.isEmpty()) {
             Box(
                 modifier = Modifier
+                    .layerBackdrop(contentBackdrop)
                     .fillMaxSize()
                     .padding(bottom = 100.dp),
                 contentAlignment = Alignment.Center
@@ -143,7 +85,7 @@ fun HistoryScreen(
                     )
                     Spacer(modifier = Modifier.height(6.dp))
                     Text(
-                        text = "Hãy dán link video TikTok để bắt đầu tải nhé!",
+                        text = "Hãy dán link video TikTok hoặc Facebook để bắt đầu tải nhé!",
                         fontSize = 13.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                     )
@@ -151,9 +93,15 @@ fun HistoryScreen(
             }
         } else {
             LazyColumn(
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier
+                    .layerBackdrop(contentBackdrop)
+                    .fillMaxSize()
+                    .padding(horizontal = 20.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
+                item {
+                    Spacer(modifier = Modifier.height(116.dp))
+                }
                 items(historyList, key = { it.downloadId }) { item ->
                     HistoryItemCard(
                         record = item,
@@ -162,15 +110,60 @@ fun HistoryScreen(
                     )
                 }
                 item {
-                    Spacer(modifier = Modifier.height(90.dp)) // Padding for bottom liquid nav
+                    Spacer(modifier = Modifier.height(120.dp))
                 }
             }
         }
+
+        // Shared Progressive Blur Header (Mờ dần, no icon)
+        LiquidTopBar(
+            backdrop = contentBackdrop,
+            modifier = Modifier.align(Alignment.TopCenter),
+            title = "Lịch sử tải về",
+            subtitle = "${historyList.size} tệp đã lưu",
+            isDark = isDark,
+            actions = {
+                // Open Downloads Folder Button
+                LiquidRoundButton(
+                    onClick = { downloadHelper.openDownloadsFolder() },
+                    backdrop = contentBackdrop,
+                    size = 40.dp,
+                    surfaceColor = if (isDark) Color.White.copy(0.18f) else Color.White.copy(0.75f)
+                ) {
+                    Icon(
+                        imageVector = CupertinoIcons.Filled.Folder,
+                        contentDescription = "Open Folder",
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+
+                // Clear History Button
+                if (historyList.isNotEmpty()) {
+                    LiquidRoundButton(
+                        onClick = {
+                            downloadHelper.clearHistory()
+                            historyList = emptyList()
+                        },
+                        backdrop = contentBackdrop,
+                        size = 40.dp,
+                        surfaceColor = Color(0xFFEF4444).copy(alpha = 0.2f)
+                    ) {
+                        Icon(
+                            imageVector = CupertinoIcons.Filled.Trash,
+                            contentDescription = "Clear History",
+                            tint = Color(0xFFEF4444),
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                }
+            }
+        )
     }
 }
 
 /**
- * Standard card for single history item (NO liquid glass on cards as specified).
+ * Standard card for single history item.
  */
 @Composable
 private fun HistoryItemCard(
@@ -210,7 +203,7 @@ private fun HistoryItemCard(
                     )
                 } else {
                     Icon(
-                        imageVector = if (record.fileExtension == "mp3") CupertinoIcons.Default.MusicNote else CupertinoIcons.Filled.Video,
+                        imageVector = if (record.fileExtension == "mp3") CupertinoIcons.Outlined.MusicNote else CupertinoIcons.Filled.Video,
                         contentDescription = null,
                         tint = Color.White,
                         modifier = Modifier

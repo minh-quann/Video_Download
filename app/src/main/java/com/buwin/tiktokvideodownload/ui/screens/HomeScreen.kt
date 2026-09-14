@@ -51,6 +51,7 @@ import com.buwin.tiktokvideodownload.ui.components.download.VideoPreviewSkeleton
 import com.buwin.tiktokvideodownload.ui.components.liquid.LiquidRoundButton
 import com.buwin.tiktokvideodownload.ui.components.liquid.LiquidSearchBar
 import com.buwin.tiktokvideodownload.ui.components.liquid.LiquidTopBar
+import com.buwin.tiktokvideodownload.ui.components.toast.AppToast
 import com.buwin.tiktokvideodownload.ui.theme.AppThemeMode
 import com.buwin.tiktokvideodownload.ui.theme.LocalIsDark
 import com.buwin.tiktokvideodownload.ui.theme.ThemePreferences
@@ -109,7 +110,7 @@ fun HomeScreen(
     fun processUrl(urlToFetch: String) {
         val target = urlToFetch.trim()
         if (target.isEmpty()) {
-            Toast.makeText(context, "Vui lòng nhập hoặc dán link TikTok", Toast.LENGTH_SHORT).show()
+            AppToast.showError("Chưa nhập liên kết", "Vui lòng nhập hoặc dán link TikTok hoặc Facebook")
             return
         }
         onIsLoadingChange(true)
@@ -120,11 +121,7 @@ fun HomeScreen(
             result.onSuccess { info ->
                 onVideoInfoChange(info)
             }.onFailure { error ->
-                Toast.makeText(
-                    context,
-                    error.message ?: "Không thể bóc tách video. Vui lòng kiểm tra lại link.",
-                    Toast.LENGTH_LONG
-                ).show()
+                AppToast.showError("Không thể bóc tách", error.message ?: "Vui lòng kiểm tra lại đường link")
             }
         }
     }
@@ -150,14 +147,14 @@ fun HomeScreen(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             // Spacer allowing content to start cleanly below the pinned top bar
-            Spacer(modifier = Modifier.height(128.dp))
+            Spacer(modifier = Modifier.height(116.dp))
 
             // Unified iOS 26 Liquid Glass Search Bar
             LiquidSearchBar(
                 value = inputUrl,
                 onValueChange = onInputUrlChange,
                 backdrop = backdrop,
-                placeholder = "Dán link video TikTok tại đây...",
+                placeholder = "Dán link video TikTok hoặc Facebook tại đây...",
                 isLoading = isLoading,
                 onSearch = { processUrl(inputUrl) },
                 onPaste = {
@@ -167,7 +164,7 @@ fun HomeScreen(
                         onInputUrlChange(extracted)
                         processUrl(extracted)
                     } else {
-                        Toast.makeText(context, "Bộ nhớ tạm rỗng", Toast.LENGTH_SHORT).show()
+                        AppToast.showInfo("Bộ nhớ tạm rỗng", "Vui lòng sao chép link trước khi dán")
                     }
                 },
                 isDark = isDark,
@@ -194,11 +191,6 @@ fun HomeScreen(
                         cardBorderColor = cardBorderColor,
                         onDownloadOption = { option ->
                             downloadHelper.enqueueDownload(videoInfo!!, option)
-                            Toast.makeText(
-                                context,
-                                "Bắt đầu tải: ${option.title}",
-                                Toast.LENGTH_SHORT
-                            ).show()
                         }
                     )
                 }
@@ -219,79 +211,13 @@ fun HomeScreen(
             Spacer(modifier = Modifier.height(120.dp))
         }
 
-        // ── 2. Pinned Sticky Liquid Glass Top Bar (Fixed on top, blurs scrolling content underneath) ──
+        // ── 2. Shared Progressive Blur Liquid Glass Top Bar (No icon) ──
         LiquidTopBar(
             backdrop = contentBackdrop,
             modifier = Modifier.align(Alignment.TopCenter),
+            title = "Video Downloader",
+            subtitle = "Tải video TikTok & Facebook HD không logo",
             isDark = isDark,
-            title = {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    // Modern TikTok Neon Brand Mark Box
-                    Box(
-                        modifier = Modifier
-                            .size(36.dp)
-                            .clip(RoundedCornerShape(10.dp))
-                            .background(
-                                Brush.linearGradient(
-                                    colors = listOf(
-                                        Color(0xFF00F2FE),
-                                        Color(0xFF4FACFE),
-                                        Color(0xFFFE2C55)
-                                    )
-                                )
-                            ),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = CupertinoIcons.Filled.Play,
-                            contentDescription = null,
-                            tint = Color.White,
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
-
-                    Column {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            Text(
-                                text = "TikTok Downloader",
-                                fontSize = 18.sp,
-                                fontWeight = FontWeight.ExtraBold,
-                                color = MaterialTheme.colorScheme.onBackground,
-                                letterSpacing = 0.2.sp
-                            )
-                            // Glowing PRO Pill
-                            Box(
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(6.dp))
-                                    .background(
-                                        Brush.horizontalGradient(
-                                            listOf(Color(0xFF007AFF), Color(0xFF00C6FF))
-                                        )
-                                    )
-                                    .padding(horizontal = 6.dp, vertical = 2.dp)
-                            ) {
-                                Text(
-                                    text = "PRO",
-                                    color = Color.White,
-                                    fontSize = 9.sp,
-                                    fontWeight = FontWeight.Black
-                                )
-                            }
-                        }
-                        Text(
-                            text = "Tải video HD không logo & MP3",
-                            fontSize = 11.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-            },
             actions = {
                 // Liquid Round Theme Toggle Button
                 LiquidRoundButton(

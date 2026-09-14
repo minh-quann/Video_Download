@@ -97,9 +97,10 @@ fun QuickGuideSection(
                                 modifier = Modifier.size(18.dp)
                             )
                         }
+                        val isFb = clipboardUrl.contains("facebook.com") || clipboardUrl.contains("fb.watch") || clipboardUrl.contains("fb.com")
                         Column {
                             Text(
-                                text = "Phát hiện link TikTok",
+                                text = if (isFb) "Phát hiện link Facebook" else "Phát hiện link TikTok",
                                 fontSize = 13.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onSurface
@@ -227,8 +228,8 @@ fun QuickGuideSection(
 
                 GuideStepRow(
                     number = "1",
-                    title = "Sao chép liên kết TikTok",
-                    subtitle = "Mở video trên TikTok, bấm Chia sẻ -> Sao chép liên kết"
+                    title = "Sao chép liên kết TikTok hoặc Facebook",
+                    subtitle = "Mở video/Reels, bấm Chia sẻ -> Sao chép liên kết"
                 )
                 GuideStepRow(
                     number = "2",
