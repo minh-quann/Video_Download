@@ -569,6 +569,19 @@ class DownloadManagerHelper(private val context: Context) {
     }
 
     /**
+     * Adds an edited or custom media record to local history and cloud sync.
+     */
+    fun addHistoryRecord(record: DownloadRecord) {
+        saveRecord(record)
+        scope.launch {
+            try {
+                firestoreSync.syncRecordToCloud(record)
+            } catch (_: Exception) {
+            }
+        }
+    }
+
+    /**
      * Retrieves download history.
      */
     fun getHistory(): List<DownloadRecord> {

@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ContentCut
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.VolumeOff
 import androidx.compose.material.icons.filled.VolumeUp
@@ -33,7 +34,7 @@ import io.github.alexzhirkevich.cupertino.icons.CupertinoIcons
 import io.github.alexzhirkevich.cupertino.icons.outlined.Xmark
 
 /**
- * Top header bar for the in-app player with dismiss, media titles, quick mute, and share button.
+ * Top header bar for the in-app player with dismiss, media titles, quick mute, video editor, and share button.
  */
 @Composable
 fun PlayerTopBar(
@@ -45,6 +46,7 @@ fun PlayerTopBar(
     onToggleMute: () -> Unit,
     onDismiss: () -> Unit,
     onShare: () -> Unit,
+    onOpenEditor: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     Box(
@@ -121,6 +123,26 @@ fun PlayerTopBar(
                     tint = if (isMuted) Color(0xFFEF4444) else Color.White,
                     modifier = Modifier.size(18.dp)
                 )
+            }
+
+            // Video Editor Button (Trim/Mux/Cut)
+            if (onOpenEditor != null) {
+                Spacer(modifier = Modifier.width(10.dp))
+                Box(
+                    modifier = Modifier
+                        .size(38.dp)
+                        .clip(CircleShape)
+                        .background(Color.White.copy(alpha = 0.20f))
+                        .clickable { onOpenEditor() },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.ContentCut,
+                        contentDescription = "Chỉnh sửa video",
+                        tint = Color.White,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.width(10.dp))

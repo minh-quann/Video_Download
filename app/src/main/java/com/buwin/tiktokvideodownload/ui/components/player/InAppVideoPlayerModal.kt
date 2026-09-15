@@ -56,6 +56,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import com.buwin.tiktokvideodownload.data.download.DownloadManagerHelper
 import com.buwin.tiktokvideodownload.data.model.DownloadRecord
+import com.buwin.tiktokvideodownload.ui.components.editor.VideoEditorModal
 import io.github.alexzhirkevich.cupertino.icons.CupertinoIcons
 import io.github.alexzhirkevich.cupertino.icons.filled.ArrowDownCircle
 import io.github.alexzhirkevich.cupertino.icons.filled.Pause
@@ -94,6 +95,7 @@ fun InAppVideoPlayerModal(
     var totalDurationMs by remember { mutableIntStateOf(0) }
     var showControls by remember { mutableStateOf(true) }
     var isMuted by remember { mutableStateOf(false) }
+    var showEditorModal by remember { mutableStateOf(false) }
 
     var videoViewRef by remember { mutableStateOf<VideoView?>(null) }
     var mediaPlayerRef by remember { mutableStateOf<MediaPlayer?>(null) }
@@ -474,7 +476,14 @@ fun InAppVideoPlayerModal(
                                 if (isAudio) "Chia sẻ âm thanh" else "Chia sẻ video"
                             )
                         )
-                    }
+                    },
+                    onOpenEditor = if (!isAudio) {
+                        {
+                            videoViewRef?.pause()
+                            isPlaying = false
+                            showEditorModal = true
+                        }
+                    } else null
                 )
             }
 
@@ -503,6 +512,22 @@ fun InAppVideoPlayerModal(
                             ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
                         }
                         activity?.requestedOrientation = targetOrientation
+                    }
+                )
+            }
+
+            // Video Editor Modal
+            if (showEditorModal) {
+                VideoEditorModal(
+                    record = record,
+                    downloadHelper = downloadHelper,
+                    onDismiss = {
+                        showEditorModal = false
+                        videoViewRef?.start()
+                        isPlaying = true
+                    },
+                    onExportSuccess = {
+                        showEditorModal = false
                     }
                 )
             }
