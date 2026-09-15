@@ -1,5 +1,6 @@
 package com.buwin.tiktokvideodownload.data.service
 
+import com.buwin.tiktokvideodownload.data.config.AppConfig
 import com.buwin.tiktokvideodownload.data.model.DownloadFormatType
 import com.buwin.tiktokvideodownload.data.model.DownloadOption
 import com.buwin.tiktokvideodownload.data.model.TikTokVideoInfo
@@ -65,7 +66,7 @@ class TikTokService {
                 return@withContext facebookService.fetchVideoInfo(cleanUrl)
             }
 
-            val apiUrl = "https://www.tikwm.com/api/"
+            val apiUrl = AppConfig.TIKTOK_API_ENDPOINT
             val formBody = FormBody.Builder()
                 .add("url", cleanUrl)
                 .add("count", "12")
@@ -77,7 +78,7 @@ class TikTokService {
             val request = Request.Builder()
                 .url(apiUrl)
                 .post(formBody)
-                .header("User-Agent", "Mozilla/5.0 (Linux; Android 14; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36")
+                .header("User-Agent", AppConfig.USER_AGENT_MOBILE)
                 .header("Accept", "application/json, text/javascript, */*; q=0.01")
                 .build()
 
@@ -215,8 +216,8 @@ class TikTokService {
         return when {
             trimmed.startsWith("http://") || trimmed.startsWith("https://") -> trimmed
             trimmed.startsWith("//") -> "https:$trimmed"
-            trimmed.startsWith("/") -> "https://www.tikwm.com$trimmed"
-            else -> "https://www.tikwm.com/$trimmed"
+            trimmed.startsWith("/") -> "${AppConfig.TIKTOK_API_BASE_URL}$trimmed"
+            else -> "${AppConfig.TIKTOK_API_BASE_URL}/$trimmed"
         }
     }
 }

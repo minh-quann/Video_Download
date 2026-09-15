@@ -171,7 +171,7 @@ fun SettingsAboutCard(
     cardBorderColor: Color,
     chevronColor: Color,
     modifier: Modifier = Modifier,
-    appVersion: String = "1.0.0 (Build 1)"
+    appVersion: String = com.buwin.tiktokvideodownload.data.config.AppConfig.APP_VERSION_DISPLAY
 ) {
     Card(
         modifier = modifier.fillMaxWidth(),

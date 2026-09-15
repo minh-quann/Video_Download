@@ -1,5 +1,6 @@
 package com.buwin.tiktokvideodownload.data.sync
 
+import android.util.Log
 import com.buwin.tiktokvideodownload.data.model.DownloadRecord
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
@@ -15,11 +16,18 @@ class FirestoreSyncManager {
     private val firestore = FirebaseFirestore.getInstance()
     private val auth = FirebaseAuth.getInstance()
 
+    companion object {
+        private const val TAG = "FirestoreSyncManager"
+    }
+
     /**
      * Uploads or updates a download record to Firestore.
      */
     suspend fun syncRecordToCloud(record: DownloadRecord) {
-        val uid = auth.currentUser?.uid ?: return
+        val uid = auth.currentUser?.uid ?: run {
+            Log.d(TAG, "No logged-in user, skipping syncRecordToCloud")
+            return
+        }
         try {
             val data = hashMapOf(
                 "id" to record.id,
@@ -30,7 +38,8 @@ class FirestoreSyncManager {
                 "fileExtension" to record.fileExtension,
                 "downloadId" to record.downloadId,
                 "timestamp" to record.timestamp,
-                "filePath" to record.filePath
+                "filePath" to record.filePath,
+                "originalUrl" to record.originalUrl
             )
             firestore.collection("users")
                 .document(uid)
@@ -38,7 +47,10 @@ class FirestoreSyncManager {
                 .document(record.downloadId.toString())
                 .set(data, SetOptions.merge())
                 .await()
-        } catch (_: Exception) {
+            Log.d(TAG, "Successfully synced record ${record.downloadId} to cloud for user $uid")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to sync record ${record.downloadId} to cloud: ${e.message}", e)
+            throw e
         }
     }
 
@@ -54,7 +66,10 @@ class FirestoreSyncManager {
                 .document(downloadId.toString())
                 .delete()
                 .await()
-        } catch (_: Exception) {
+            Log.d(TAG, "Deleted record $downloadId from cloud")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to delete record $downloadId from cloud: ${e.message}", e)
+            throw e
         }
     }
 
@@ -72,7 +87,10 @@ class FirestoreSyncManager {
             for (doc in snapshot.documents) {
                 doc.reference.delete().await()
             }
-        } catch (_: Exception) {
+            Log.d(TAG, "Successfully cleared all cloud history for user $uid")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to clear cloud history: ${e.message}", e)
+            throw e
         }
     }
 
@@ -99,6 +117,7 @@ class FirestoreSyncManager {
                 val downloadId = doc.getLong("downloadId") ?: 0L
                 val timestamp = doc.getLong("timestamp") ?: 0L
                 val filePath = doc.getString("filePath") ?: ""
+                val originalUrl = doc.getString("originalUrl") ?: ""
 
                 if (id.isNotEmpty() || title.isNotEmpty()) {
                     DownloadRecord(
@@ -110,14 +129,16 @@ class FirestoreSyncManager {
                         fileExtension = fileExtension,
                         downloadId = downloadId,
                         timestamp = timestamp,
-                        filePath = filePath
+                        filePath = filePath,
+                        originalUrl = originalUrl
                     )
                 } else {
                     null
                 }
             }
-        } catch (_: Exception) {
-            emptyList()
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to fetch cloud history: ${e.message}", e)
+            throw e
         }
     }
 }

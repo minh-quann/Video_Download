@@ -195,7 +195,8 @@ class DownloadManagerHelper(private val context: Context) {
             formatTitle = option.title,
             fileExtension = option.fileExtension,
             downloadId = downloadId,
-            filePath = ""
+            filePath = "",
+            originalUrl = videoInfo.originalUrl
         )
         saveRecord(record)
 
@@ -551,6 +552,7 @@ class DownloadManagerHelper(private val context: Context) {
                 put("downloadId", item.downloadId)
                 put("timestamp", item.timestamp)
                 put("filePath", item.filePath)
+                put("originalUrl", item.originalUrl)
             }
             jsonArray.put(obj)
         }
@@ -586,7 +588,8 @@ class DownloadManagerHelper(private val context: Context) {
                         fileExtension = obj.optString("fileExtension"),
                         downloadId = obj.optLong("downloadId"),
                         timestamp = obj.optLong("timestamp"),
-                        filePath = obj.optString("filePath")
+                        filePath = obj.optString("filePath"),
+                        originalUrl = obj.optString("originalUrl", "")
                     )
                 )
             }
@@ -713,8 +716,10 @@ class DownloadManagerHelper(private val context: Context) {
             val existing = recordMap[local.downloadId]
             if (existing == null) {
                 recordMap[local.downloadId] = local
-            } else if (local.filePath.isNotEmpty() && existing.filePath.isEmpty()) {
-                recordMap[local.downloadId] = existing.copy(filePath = local.filePath)
+            } else {
+                val bestFilePath = if (local.filePath.isNotEmpty()) local.filePath else existing.filePath
+                val bestUrl = if (local.originalUrl.isNotEmpty()) local.originalUrl else existing.originalUrl
+                recordMap[local.downloadId] = existing.copy(filePath = bestFilePath, originalUrl = bestUrl)
             }
         }
 
@@ -727,6 +732,18 @@ class DownloadManagerHelper(private val context: Context) {
         }
 
         return merged
+    }
+
+    /**
+     * Resolves the original video URL for re-downloading.
+     * Uses persisted originalUrl, or synthesizes a fallback for TikTok numeric IDs.
+     */
+    fun getResolvableVideoUrl(record: DownloadRecord): String {
+        if (record.originalUrl.isNotEmpty()) return record.originalUrl
+        if (record.author.startsWith("@") && record.id.isNotEmpty() && record.id.all { it.isDigit() }) {
+            return "https://www.tiktok.com/${record.author}/video/${record.id}"
+        }
+        return ""
     }
 
     /**

@@ -35,6 +35,7 @@ import androidx.compose.ui.text.PlatformTextStyle
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextAlign
 import io.github.alexzhirkevich.cupertino.icons.CupertinoIcons
+import io.github.alexzhirkevich.cupertino.icons.filled.ArrowDownCircle
 import io.github.alexzhirkevich.cupertino.icons.filled.Gearshape
 import io.github.alexzhirkevich.cupertino.icons.filled.House
 import io.github.alexzhirkevich.cupertino.icons.outlined.ClockArrowCirclepath
@@ -43,6 +44,12 @@ import com.buwin.tiktokvideodownload.ui.components.liquid.LiquidBottomTabs
 import com.buwin.tiktokvideodownload.ui.screens.HistoryScreen
 import com.buwin.tiktokvideodownload.ui.screens.HomeScreen
 import com.buwin.tiktokvideodownload.ui.screens.SettingsScreen
+import com.buwin.tiktokvideodownload.data.model.TikTokVideoInfo
+import com.buwin.tiktokvideodownload.data.service.FacebookService
+import com.buwin.tiktokvideodownload.ui.components.download.ReDownloadFormatModal
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 import com.buwin.tiktokvideodownload.ui.theme.AppThemeMode
 import com.buwin.tiktokvideodownload.ui.theme.BackgroundDark
 import com.buwin.tiktokvideodownload.ui.theme.BackgroundLight
@@ -125,6 +132,40 @@ fun MainApp(
     var activePlayingRecord by remember { mutableStateOf<DownloadRecord?>(null) }
     var pendingCancelDownloadId by remember { mutableStateOf<Long?>(null) }
 
+    val coroutineScope = rememberCoroutineScope()
+    val facebookService = remember { FacebookService() }
+    var missingFileRecord by remember { mutableStateOf<DownloadRecord?>(null) }
+    var reDownloadInfo by remember { mutableStateOf<TikTokVideoInfo?>(null) }
+
+    fun startReDownloadFlow(record: DownloadRecord) {
+        val targetUrl = downloadHelper.getResolvableVideoUrl(record)
+        if (targetUrl.isEmpty()) {
+            AppToast.showError(
+                "Không tìm thấy liên kết",
+                "Bản ghi này không có liên kết gốc để tải lại"
+            )
+            return
+        }
+        coroutineScope.launch {
+            AppToast.showInfo(
+                "Đang lấy dữ liệu video...",
+                "Vui lòng chờ trong giây lát"
+            )
+            val result = tiktokService.fetchVideoInfo(targetUrl)
+            result.fold(
+                onSuccess = { info ->
+                    reDownloadInfo = info
+                },
+                onFailure = { err ->
+                    AppToast.showError(
+                        "Lỗi kết nối",
+                        err.localizedMessage ?: "Không thể lấy thông tin định dạng video"
+                    )
+                }
+            )
+        }
+    }
+
     // Remember HomeViewModel to preserve state across tab switches
     val homeViewModel = remember {
         com.buwin.tiktokvideodownload.ui.screens.home.viewmodel.HomeViewModel(
@@ -158,7 +199,12 @@ fun MainApp(
                     downloadHelper = downloadHelper,
                     authManager = authManager,
                     onPlayRecord = { record ->
-                        activePlayingRecord = record
+                        val uri = downloadHelper.getDownloadedUri(record)
+                        if (uri == null) {
+                            missingFileRecord = record
+                        } else {
+                            activePlayingRecord = record
+                        }
                     }
                 )
                 2 -> SettingsScreen(
@@ -169,6 +215,13 @@ fun MainApp(
                 )
             }
         }
+
+        // Progressive Blur Footer (Apple-style gradient blur dissolving scrolling content towards bottom edge)
+        com.buwin.tiktokvideodownload.ui.components.liquid.LiquidBottomProgressiveBlur(
+            backdrop = screenBackdrop,
+            isDark = isDark,
+            modifier = Modifier.align(Alignment.BottomCenter)
+        )
 
         val contentColor = if (isDark) Color.White else Color.Black
 
@@ -294,7 +347,49 @@ fun MainApp(
             InAppVideoPlayerModal(
                 record = record,
                 downloadHelper = downloadHelper,
-                onDismiss = { activePlayingRecord = null }
+                onDismiss = { activePlayingRecord = null },
+                onRedownloadClick = { targetRecord ->
+                    startReDownloadFlow(targetRecord)
+                }
+            )
+        }
+
+        // Modal Confirmation for Re-downloading Missing File
+        AppConfirmationModal(
+            visible = missingFileRecord != null,
+            onDismissRequest = { missingFileRecord = null },
+            title = "Tệp không còn trên máy",
+            message = "Tệp '${missingFileRecord?.title ?: ""}' đã bị xóa hoặc di chuyển khỏi bộ nhớ máy. Bạn có muốn tải lại video này không?",
+            confirmText = "Tải lại video",
+            cancelText = "Đóng",
+            icon = CupertinoIcons.Filled.ArrowDownCircle,
+            iconTint = MaterialTheme.colorScheme.primary,
+            backdrop = screenBackdrop,
+            isDark = isDark,
+            onConfirm = {
+                val target = missingFileRecord
+                missingFileRecord = null
+                if (target != null) {
+                    startReDownloadFlow(target)
+                }
+            }
+        )
+
+        // Modal for Choosing Re-download Format
+        reDownloadInfo?.let { info ->
+            ReDownloadFormatModal(
+                info = info,
+                backdrop = screenBackdrop,
+                isDark = isDark,
+                onDismiss = { reDownloadInfo = null },
+                onDownloadOption = { option ->
+                    downloadHelper.enqueueDownload(info, option)
+                    reDownloadInfo = null
+                    AppToast.showSuccess(
+                        "Bắt đầu tải lại",
+                        "${info.title} (${option.title})"
+                    )
+                }
             )
         }
     }

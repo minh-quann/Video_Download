@@ -54,5 +54,6 @@ data class DownloadRecord(
     val fileExtension: String,
     val downloadId: Long,
     val timestamp: Long = System.currentTimeMillis(),
-    val filePath: String = ""
+    val filePath: String = "",
+    val originalUrl: String = ""
 )

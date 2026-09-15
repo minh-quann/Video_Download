@@ -1,6 +1,7 @@
 package com.buwin.tiktokvideodownload.data.service
 
 import android.text.Html
+import com.buwin.tiktokvideodownload.data.config.AppConfig
 import com.buwin.tiktokvideodownload.data.model.DownloadFormatType
 import com.buwin.tiktokvideodownload.data.model.DownloadOption
 import com.buwin.tiktokvideodownload.data.model.TikTokVideoInfo
@@ -95,7 +96,7 @@ class FacebookService {
         return try {
             val request = Request.Builder()
                 .url(url)
-                .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
+                .header("User-Agent", AppConfig.USER_AGENT_DESKTOP)
                 .header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
                 .header("Accept-Language", "en-US,en;q=0.9")
                 .header("Sec-Fetch-Dest", "document")
@@ -220,11 +221,11 @@ class FacebookService {
     private fun tryApiFallback(url: String): Result<TikTokVideoInfo> {
         return try {
             val encodedUrl = URLEncoder.encode(url, "UTF-8")
-            val apiUrl = "https://facebook.bdbots.org/dl?url=$encodedUrl"
+            val apiUrl = "${AppConfig.FACEBOOK_API_ENDPOINT}?url=$encodedUrl"
 
             val request = Request.Builder()
                 .url(apiUrl)
-                .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+                .header("User-Agent", AppConfig.USER_AGENT_DESKTOP)
                 .header("Accept", "application/json")
                 .build()
 

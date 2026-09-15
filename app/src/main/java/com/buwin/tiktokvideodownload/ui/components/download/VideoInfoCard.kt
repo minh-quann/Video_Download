@@ -144,8 +144,8 @@ fun VideoInfoCard(
                         model = ImageRequest.Builder(LocalContext.current)
                             .data(info.coverUrl)
                             .crossfade(true)
-                            .setHeader("Referer", if (info.coverUrl.contains("tikwm.com")) "https://www.tikwm.com/" else "https://www.facebook.com/")
-                            .setHeader("User-Agent", "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36")
+                            .setHeader("Referer", if (info.coverUrl.contains("tikwm.com")) com.buwin.tiktokvideodownload.data.config.AppConfig.REFERER_TIKTOK else com.buwin.tiktokvideodownload.data.config.AppConfig.REFERER_FACEBOOK)
+                            .setHeader("User-Agent", com.buwin.tiktokvideodownload.data.config.AppConfig.USER_AGENT_MOBILE)
                             .build(),
                         contentDescription = "Thumbnail",
                         contentScale = ContentScale.Crop,

@@ -72,8 +72,16 @@ class HistoryViewModel(
                 if (showToast) {
                     AppToast.showSuccess("Đã đồng bộ", "Lịch sử đã được cập nhật từ đám mây")
                 }
-            } catch (_: Exception) {
+            } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(isSyncing = false)
+                if (showToast) {
+                    val message = if (e.message?.contains("PERMISSION_DENIED", ignoreCase = true) == true) {
+                        "Quyền Firestore bị chặn. Hãy cập nhật Rules trên Firebase Console."
+                    } else {
+                        e.localizedMessage ?: "Không thể đồng bộ dữ liệu"
+                    }
+                    AppToast.showError("Lỗi đồng bộ", message)
+                }
             }
         }
     }

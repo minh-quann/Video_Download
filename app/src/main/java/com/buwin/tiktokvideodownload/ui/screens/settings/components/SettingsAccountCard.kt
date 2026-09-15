@@ -264,8 +264,9 @@ fun SettingsAccountCard(
 
                 Surface(
                     onClick = onSignInClick,
-                    shape = RoundedCornerShape(16.dp),
-                    color = MaterialTheme.colorScheme.primary,
+                    shape = CircleShape,
+                    color = if (isDark) Color(0xFF2C2C2E) else Color.White,
+                    border = BorderStroke(1.dp, if (isDark) Color(0xFF3A3A3C) else Color(0xFFE5E7EB)),
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(44.dp)
@@ -279,14 +280,14 @@ fun SettingsAccountCard(
                             CircularProgressIndicator(
                                 modifier = Modifier.size(18.dp),
                                 strokeWidth = 2.dp,
-                                color = Color.White
+                                color = if (isDark) Color.White else Color(0xFF1F2937)
                             )
                             Spacer(modifier = Modifier.width(10.dp))
                             Text(
                                 text = "Đang kết nối Google...",
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.SemiBold,
-                                color = Color.White
+                                color = if (isDark) Color.White else Color(0xFF1F2937)
                             )
                         } else {
                             Image(
@@ -299,7 +300,7 @@ fun SettingsAccountCard(
                                 text = "Tiếp tục với Google",
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.SemiBold,
-                                color = Color.White
+                                color = if (isDark) Color.White else Color(0xFF1F2937)
                             )
                         }
                     }

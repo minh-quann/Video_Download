@@ -60,6 +60,7 @@ import com.buwin.tiktokvideodownload.data.model.DownloadRecord
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Share
 import io.github.alexzhirkevich.cupertino.icons.CupertinoIcons
+import io.github.alexzhirkevich.cupertino.icons.filled.ArrowDownCircle
 import io.github.alexzhirkevich.cupertino.icons.filled.Pause
 import io.github.alexzhirkevich.cupertino.icons.filled.Play
 import io.github.alexzhirkevich.cupertino.icons.outlined.ClockArrowCirclepath
@@ -76,7 +77,8 @@ import java.util.Locale
 fun InAppVideoPlayerModal(
     record: DownloadRecord,
     downloadHelper: DownloadManagerHelper,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    onRedownloadClick: ((DownloadRecord) -> Unit)? = null
 ) {
     val context = LocalContext.current
     val videoUri = remember(record) { downloadHelper.getDownloadedUri(record) }
@@ -166,30 +168,58 @@ fun InAppVideoPlayerModal(
                     fontSize = 13.sp
                 )
                 Spacer(modifier = Modifier.height(24.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     Surface(
                         onClick = onDismiss,
                         shape = RoundedCornerShape(12.dp),
-                        color = Color.White.copy(alpha = 0.2f)
+                        color = Color.White.copy(alpha = 0.16f)
                     ) {
                         Text(
                             text = "Đóng",
                             color = Color.White,
-                            modifier = Modifier.padding(horizontal = 20.dp, vertical = 10.dp),
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
                             fontWeight = FontWeight.Medium
                         )
                     }
                     Surface(
                         onClick = { downloadHelper.openDownloadsFolder() },
                         shape = RoundedCornerShape(12.dp),
-                        color = MaterialTheme.colorScheme.primary
+                        color = Color.White.copy(alpha = 0.16f)
                     ) {
                         Text(
                             text = "Mở thư mục",
                             color = Color.White,
-                            modifier = Modifier.padding(horizontal = 20.dp, vertical = 10.dp),
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
                             fontWeight = FontWeight.Medium
                         )
+                    }
+                    if (onRedownloadClick != null) {
+                        Surface(
+                            onClick = {
+                                onDismiss()
+                                onRedownloadClick(record)
+                            },
+                            shape = RoundedCornerShape(12.dp),
+                            color = MaterialTheme.colorScheme.primary
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)
+                            ) {
+                                Icon(
+                                    imageVector = CupertinoIcons.Filled.ArrowDownCircle,
+                                    contentDescription = null,
+                                    tint = Color.White,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Text(
+                                    text = "Tải lại",
+                                    color = Color.White,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
+                        }
                     }
                 }
             }
