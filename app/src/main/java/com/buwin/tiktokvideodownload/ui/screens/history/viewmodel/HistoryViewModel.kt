@@ -21,6 +21,7 @@ import kotlinx.coroutines.launch
 data class HistoryUiState(
     val records: List<DownloadRecord> = emptyList(),
     val groups: List<HistoryDateGroup> = emptyList(),
+    val isLoading: Boolean = true,
     val isSyncing: Boolean = false,
     val currentUser: FirebaseUser? = null
 )
@@ -56,7 +57,11 @@ class HistoryViewModel(
     fun loadLocalHistory() {
         val local = historyRepository.getLocalHistory()
         val groups = HistoryGroupUtils.groupByDate(local)
-        _uiState.value = _uiState.value.copy(records = local, groups = groups)
+        _uiState.value = _uiState.value.copy(
+            records = local,
+            groups = groups,
+            isLoading = false
+        )
     }
 
     /**
@@ -68,7 +73,12 @@ class HistoryViewModel(
             try {
                 val merged = historyRepository.syncWithCloud()
                 val groups = HistoryGroupUtils.groupByDate(merged)
-                _uiState.value = _uiState.value.copy(records = merged, groups = groups, isSyncing = false)
+                _uiState.value = _uiState.value.copy(
+                    records = merged,
+                    groups = groups,
+                    isSyncing = false,
+                    isLoading = false
+                )
                 if (showToast) {
                     AppToast.showSuccess("Đã đồng bộ", "Lịch sử đã được cập nhật từ đám mây")
                 }

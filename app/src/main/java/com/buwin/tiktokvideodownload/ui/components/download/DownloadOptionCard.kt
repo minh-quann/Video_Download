@@ -56,10 +56,10 @@ fun HeroDownloadButton(
             .fillMaxWidth()
             .shadow(
                 elevation = 8.dp,
-                shape = RoundedCornerShape(20.dp),
+                shape = RoundedCornerShape(26.dp),
                 spotColor = Color(0xFF007AFF).copy(alpha = 0.35f)
             )
-            .clip(RoundedCornerShape(20.dp))
+            .clip(RoundedCornerShape(26.dp))
             .background(
                 Brush.horizontalGradient(
                     colors = listOf(
@@ -188,14 +188,14 @@ fun SecondaryOptionTile(
         modifier = modifier
             .fillMaxWidth()
             .clickable(onClick = onClick),
-        shape = RoundedCornerShape(18.dp),
+        shape = RoundedCornerShape(26.dp),
         colors = CardDefaults.cardColors(containerColor = cardBackground),
         border = BorderStroke(1.dp, cardBorderColor)
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(12.dp)
+                .padding(14.dp)
         ) {
             // Top Row: Category Icon + Format Badge
             Row(
@@ -206,7 +206,7 @@ fun SecondaryOptionTile(
                 Box(
                     modifier = Modifier
                         .size(36.dp)
-                        .clip(RoundedCornerShape(10.dp))
+                        .clip(RoundedCornerShape(14.dp))
                         .background(bgTint),
                     contentAlignment = Alignment.Center
                 ) {

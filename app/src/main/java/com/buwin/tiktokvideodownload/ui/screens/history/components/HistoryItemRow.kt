@@ -1,6 +1,8 @@
 package com.buwin.tiktokvideodownload.ui.screens.history.components
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -12,6 +14,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -21,26 +24,68 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import coil.compose.AsyncImage
+import coil.compose.SubcomposeAsyncImage
+import com.buwin.tiktokvideodownload.R
 import com.buwin.tiktokvideodownload.data.model.DownloadRecord
+import com.buwin.tiktokvideodownload.ui.components.download.shimmerEffect
 import com.buwin.tiktokvideodownload.ui.components.liquid.LiquidRoundButton
 import com.kyant.backdrop.Backdrop
 import io.github.alexzhirkevich.cupertino.icons.CupertinoIcons
 import io.github.alexzhirkevich.cupertino.icons.filled.Play
-import io.github.alexzhirkevich.cupertino.icons.filled.Video
 import io.github.alexzhirkevich.cupertino.icons.outlined.MusicNote
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
 /**
+ * Platform enumeration for download source identification.
+ */
+enum class DownloadPlatform {
+    TIKTOK,
+    FACEBOOK
+}
+
+/**
+ * Determines whether the download record originates from TikTok or Facebook.
+ */
+fun DownloadRecord.detectPlatform(): DownloadPlatform {
+    val orig = originalUrl.lowercase()
+    if (orig.contains("facebook.com") || orig.contains("fb.watch") || orig.contains("fb.com")) {
+        return DownloadPlatform.FACEBOOK
+    }
+    if (orig.contains("tiktok.com") || orig.contains("douyin.com")) {
+        return DownloadPlatform.TIKTOK
+    }
+
+    val path = filePath.lowercase()
+    if (path.contains("facebookdownloads")) return DownloadPlatform.FACEBOOK
+    if (path.contains("tiktokdownloads")) return DownloadPlatform.TIKTOK
+
+    val fmt = formatTitle.lowercase()
+    if (fmt.contains("facebook")) return DownloadPlatform.FACEBOOK
+    if (fmt.contains("tiktok")) return DownloadPlatform.TIKTOK
+
+    val auth = author.lowercase()
+    if (auth.contains("facebook")) return DownloadPlatform.FACEBOOK
+
+    val t = title.lowercase()
+    if (t.contains("facebook")) return DownloadPlatform.FACEBOOK
+
+    // Default to TikTok as the primary platform
+    return DownloadPlatform.TIKTOK
+}
+
+/**
  * Single item row displaying thumbnail, metadata, time, and playback button.
+ * Includes graceful branded fallback when video thumbnails fail to load or expire.
  */
 @Composable
 fun HistoryItemRow(
@@ -59,6 +104,9 @@ fun HistoryItemRow(
         }
     }
 
+    val platform = remember(record) { record.detectPlatform() }
+    val isAudio = record.fileExtension.equals("mp3", ignoreCase = true)
+
     Row(
         modifier = modifier
             .fillMaxWidth()
@@ -66,27 +114,44 @@ fun HistoryItemRow(
             .padding(horizontal = 14.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Thumbnail preview
+        // Thumbnail preview with branded fallback
         Box(
             modifier = Modifier
                 .size(56.dp)
                 .clip(RoundedCornerShape(14.dp))
-                .background(if (isDark) Color(0xFF2C2C2E) else Color(0xFFE5E7EB)),
+                .border(
+                    width = 0.8.dp,
+                    color = if (isDark) Color.White.copy(alpha = 0.08f) else Color.Black.copy(alpha = 0.06f),
+                    shape = RoundedCornerShape(14.dp)
+                ),
             contentAlignment = Alignment.Center
         ) {
             if (record.coverUrl.isNotEmpty()) {
-                AsyncImage(
+                SubcomposeAsyncImage(
                     model = record.coverUrl,
-                    contentDescription = null,
+                    contentDescription = record.title,
                     contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize()
+                    modifier = Modifier.fillMaxSize(),
+                    loading = {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .shimmerEffect(isDark)
+                        )
+                    },
+                    error = {
+                        PlatformFallbackThumbnail(
+                            platform = platform,
+                            isAudio = isAudio,
+                            isDark = isDark
+                        )
+                    }
                 )
             } else {
-                Icon(
-                    imageVector = if (record.fileExtension == "mp3") CupertinoIcons.Outlined.MusicNote else CupertinoIcons.Filled.Video,
-                    contentDescription = null,
-                    tint = if (isDark) Color.White else Color(0xFF4B5563),
-                    modifier = Modifier.size(26.dp)
+                PlatformFallbackThumbnail(
+                    platform = platform,
+                    isAudio = isAudio,
+                    isDark = isDark
                 )
             }
         }
@@ -136,6 +201,76 @@ fun HistoryItemRow(
                 tint = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.size(18.dp)
             )
+        }
+    }
+}
+
+/**
+ * Premium branded thumbnail placeholder displayed when video cover fails or is unavailable.
+ */
+@Composable
+fun PlatformFallbackThumbnail(
+    platform: DownloadPlatform,
+    isAudio: Boolean,
+    isDark: Boolean,
+    modifier: Modifier = Modifier
+) {
+    val backgroundBrush = when (platform) {
+        DownloadPlatform.FACEBOOK -> Brush.linearGradient(
+            listOf(
+                Color(0xFF1877F2),
+                Color(0xFF0C63D4)
+            )
+        )
+        DownloadPlatform.TIKTOK -> Brush.linearGradient(
+            listOf(
+                Color(0xFF1C1D26),
+                Color(0xFF0B0B10)
+            )
+        )
+    }
+
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .background(brush = backgroundBrush),
+        contentAlignment = Alignment.Center
+    ) {
+        when (platform) {
+            DownloadPlatform.FACEBOOK -> {
+                Image(
+                    painter = painterResource(id = R.drawable.ic_brand_facebook),
+                    contentDescription = "Facebook",
+                    modifier = Modifier.size(26.dp)
+                )
+            }
+            DownloadPlatform.TIKTOK -> {
+                Image(
+                    painter = painterResource(id = R.drawable.ic_brand_tiktok),
+                    contentDescription = "TikTok",
+                    modifier = Modifier.size(26.dp)
+                )
+            }
+        }
+
+        // Audio badge overlay for MP3 music downloads
+        if (isAudio) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(3.dp)
+                    .size(16.dp)
+                    .clip(CircleShape)
+                    .background(Color.Black.copy(alpha = 0.65f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = CupertinoIcons.Outlined.MusicNote,
+                    contentDescription = "Audio",
+                    tint = Color.White,
+                    modifier = Modifier.size(10.dp)
+                )
+            }
         }
     }
 }

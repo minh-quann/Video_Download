@@ -56,37 +56,35 @@ fun QuickGuideSection(
         modifier = modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(20.dp)
     ) {
-        // ── 1. Clipboard Quick Action Pill (if TikTok link detected) ──
+        // ── 1. Clipboard Quick Action Card (if media link detected) ──
         if (!clipboardUrl.isNullOrBlank()) {
-            Box(
+            Card(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(18.dp))
-                    .background(
-                        Brush.horizontalGradient(
-                            colors = listOf(
-                                Color(0xFF007AFF).copy(alpha = 0.15f),
-                                Color(0xFF00B4D8).copy(alpha = 0.15f)
-                            )
-                        )
-                    )
-                    .clickable { onUseClipboardUrl(clipboardUrl) }
-                    .padding(horizontal = 16.dp, vertical = 12.dp)
+                    .clickable { onUseClipboardUrl(clipboardUrl) },
+                shape = RoundedCornerShape(26.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = Color(0xFF007AFF).copy(alpha = if (isDark) 0.16f else 0.08f)
+                ),
+                border = BorderStroke(1.dp, Color(0xFF007AFF).copy(alpha = if (isDark) 0.35f else 0.22f)),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
             ) {
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 14.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
                         modifier = Modifier.weight(1f)
                     ) {
                         Box(
                             modifier = Modifier
-                                .size(36.dp)
-                                .clip(CircleShape)
+                                .size(40.dp)
+                                .clip(RoundedCornerShape(14.dp))
                                 .background(Color(0xFF007AFF)),
                             contentAlignment = Alignment.Center
                         ) {
@@ -94,20 +92,21 @@ fun QuickGuideSection(
                                 imageVector = CupertinoIcons.Filled.DocOnDoc,
                                 contentDescription = null,
                                 tint = Color.White,
-                                modifier = Modifier.size(18.dp)
+                                modifier = Modifier.size(20.dp)
                             )
                         }
                         val isFb = clipboardUrl.contains("facebook.com") || clipboardUrl.contains("fb.watch") || clipboardUrl.contains("fb.com")
                         Column {
                             Text(
                                 text = if (isFb) "Phát hiện link Facebook" else "Phát hiện link TikTok",
-                                fontSize = 13.sp,
+                                fontSize = 13.5.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onSurface
                             )
+                            Spacer(modifier = Modifier.height(2.dp))
                             Text(
                                 text = "Chạm để dán và tải ngay",
-                                fontSize = 11.sp,
+                                fontSize = 11.5.sp,
                                 color = Color(0xFF007AFF)
                             )
                         }
@@ -115,13 +114,13 @@ fun QuickGuideSection(
 
                     Box(
                         modifier = Modifier
-                            .clip(RoundedCornerShape(8.dp))
+                            .clip(RoundedCornerShape(12.dp))
                             .background(Color(0xFF007AFF))
-                            .padding(horizontal = 10.dp, vertical = 6.dp)
+                            .padding(horizontal = 12.dp, vertical = 8.dp)
                     ) {
                         Text(
                             text = "Tải ngay",
-                            fontSize = 11.sp,
+                            fontSize = 11.5.sp,
                             fontWeight = FontWeight.Bold,
                             color = Color.White
                         )
@@ -131,7 +130,7 @@ fun QuickGuideSection(
         }
 
         // ── 2. Bento Feature Highlights Grid ──
-        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(
                 text = "Tính năng vượt trội",
                 fontSize = 15.sp,
@@ -142,7 +141,7 @@ fun QuickGuideSection(
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 FeatureTile(
                     title = "1080p Siêu nét",
@@ -169,7 +168,7 @@ fun QuickGuideSection(
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 FeatureTile(
                     title = "Tách Nhạc MP3",
@@ -195,52 +194,69 @@ fun QuickGuideSection(
             }
         }
 
-        // ── 3. Quick 3-Step Guide ──
+        // ── 3. Quick 3-Step Guide Card (Standard 26.dp Squircle) ──
         Card(
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(20.dp),
+            shape = RoundedCornerShape(26.dp),
             colors = CardDefaults.cardColors(containerColor = cardBackground),
-            border = BorderStroke(1.dp, cardBorderColor)
+            border = BorderStroke(1.dp, cardBorderColor),
+            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
         ) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                    .padding(20.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    Icon(
-                        imageVector = CupertinoIcons.Outlined.Sparkles,
-                        contentDescription = null,
-                        tint = Color(0xFF007AFF),
-                        modifier = Modifier.size(16.dp)
-                    )
+                    Box(
+                        modifier = Modifier
+                            .size(32.dp)
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(Color(0xFF007AFF).copy(alpha = if (isDark) 0.22f else 0.12f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = CupertinoIcons.Outlined.Sparkles,
+                            contentDescription = null,
+                            tint = Color(0xFF007AFF),
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
                     Text(
                         text = "Cách tải video trong 3 bước",
-                        fontSize = 14.sp,
+                        fontSize = 15.sp,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface
                     )
                 }
 
-                GuideStepRow(
-                    number = "1",
-                    title = "Sao chép liên kết TikTok hoặc Facebook",
-                    subtitle = "Mở video/Reels, bấm Chia sẻ -> Sao chép liên kết"
-                )
-                GuideStepRow(
-                    number = "2",
-                    title = "Dán vào ô tìm kiếm",
-                    subtitle = "Chạm nút \"Dán\" phía trên hoặc nhập link trực tiếp"
-                )
-                GuideStepRow(
-                    number = "3",
-                    title = "Chọn chất lượng & Tải về",
-                    subtitle = "Bấm nút Tải HD để lưu video không logo về máy"
-                )
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(0.dp)
+                ) {
+                    GuideStepRow(
+                        number = "1",
+                        title = "Sao chép liên kết TikTok hoặc Facebook",
+                        subtitle = "Mở video/Reels, bấm Chia sẻ -> Sao chép liên kết",
+                        isLast = false
+                    )
+                    GuideStepRow(
+                        number = "2",
+                        title = "Dán vào ô tìm kiếm",
+                        subtitle = "Chạm nút \"Dán\" phía trên hoặc nhập link trực tiếp",
+                        isLast = false
+                    )
+                    GuideStepRow(
+                        number = "3",
+                        title = "Chọn chất lượng & Tải về",
+                        subtitle = "Bấm nút Tải HD để lưu video không logo về máy",
+                        isLast = true
+                    )
+                }
             }
         }
     }
@@ -259,20 +275,21 @@ private fun FeatureTile(
 ) {
     Card(
         modifier = modifier,
-        shape = RoundedCornerShape(18.dp),
+        shape = RoundedCornerShape(26.dp),
         colors = CardDefaults.cardColors(containerColor = cardBackground),
-        border = BorderStroke(1.dp, cardBorderColor)
+        border = BorderStroke(1.dp, cardBorderColor),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(14.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+                .padding(horizontal = 16.dp, vertical = 18.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Box(
                 modifier = Modifier
-                    .size(34.dp)
-                    .clip(RoundedCornerShape(10.dp))
+                    .size(40.dp)
+                    .clip(RoundedCornerShape(14.dp))
                     .background(bgTint),
                 contentAlignment = Alignment.Center
             ) {
@@ -280,18 +297,18 @@ private fun FeatureTile(
                     imageVector = icon,
                     contentDescription = null,
                     tint = tint,
-                    modifier = Modifier.size(18.dp)
+                    modifier = Modifier.size(20.dp)
                 )
             }
 
             Column {
                 Text(
                     text = title,
-                    fontSize = 13.sp,
+                    fontSize = 13.5.sp,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface
                 )
-                Spacer(modifier = Modifier.height(2.dp))
+                Spacer(modifier = Modifier.height(3.dp))
                 Text(
                     text = description,
                     fontSize = 11.sp,
@@ -306,38 +323,57 @@ private fun FeatureTile(
 private fun GuideStepRow(
     number: String,
     title: String,
-    subtitle: String
+    subtitle: String,
+    isLast: Boolean = false
 ) {
+    val isDark = LocalIsDark.current
+
     Row(
         modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp)
+        horizontalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        Box(
-            modifier = Modifier
-                .size(24.dp)
-                .clip(CircleShape)
-                .background(Color(0xFF007AFF).copy(alpha = 0.12f)),
-            contentAlignment = Alignment.Center
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text(
-                text = number,
-                fontSize = 11.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color(0xFF007AFF)
-            )
+            Box(
+                modifier = Modifier
+                    .size(28.dp)
+                    .clip(CircleShape)
+                    .background(Color(0xFF007AFF).copy(alpha = if (isDark) 0.22f else 0.12f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = number,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF007AFF)
+                )
+            }
+            if (!isLast) {
+                Box(
+                    modifier = Modifier
+                        .width(1.5.dp)
+                        .height(24.dp)
+                        .background(if (isDark) Color(0xFF2C2C2E) else Color(0xFFE6E8EC))
+                )
+            }
         }
 
-        Column(modifier = Modifier.weight(1f)) {
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .padding(top = 2.dp, bottom = if (!isLast) 8.dp else 0.dp)
+        ) {
             Text(
                 text = title,
-                fontSize = 12.sp,
+                fontSize = 13.sp,
                 fontWeight = FontWeight.SemiBold,
                 color = MaterialTheme.colorScheme.onSurface
             )
+            Spacer(modifier = Modifier.height(2.dp))
             Text(
                 text = subtitle,
-                fontSize = 10.sp,
+                fontSize = 11.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }

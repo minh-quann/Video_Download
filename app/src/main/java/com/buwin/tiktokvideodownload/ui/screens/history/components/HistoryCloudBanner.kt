@@ -42,7 +42,7 @@ fun HistoryCloudBanner(
         modifier = modifier
             .fillMaxWidth()
             .clickable { onClickSignIn() },
-        shape = RoundedCornerShape(20.dp),
+        shape = RoundedCornerShape(26.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.primary.copy(alpha = if (isDark) 0.16f else 0.08f)
         ),

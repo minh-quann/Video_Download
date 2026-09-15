@@ -111,14 +111,14 @@ fun VideoInfoCard(
 
     Card(
         modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(22.dp),
+        shape = RoundedCornerShape(26.dp),
         colors = CardDefaults.cardColors(containerColor = cardBackground),
         border = BorderStroke(1.dp, cardBorderColor)
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(12.dp),
+                .padding(14.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             // ── Left: 3:4 Vertical TikTok Thumbnail with Liquid Glass Play Overlay ──
@@ -126,7 +126,7 @@ fun VideoInfoCard(
                 modifier = Modifier
                     .width(108.dp)
                     .height(144.dp)
-                    .clip(RoundedCornerShape(16.dp))
+                    .clip(RoundedCornerShape(18.dp))
                     .background(Color(0xFF1E1E24))
                     .clickable(enabled = previewVideoUrl.isNotEmpty()) {
                         showPreviewDialog = true

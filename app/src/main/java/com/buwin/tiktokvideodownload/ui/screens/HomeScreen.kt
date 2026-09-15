@@ -34,6 +34,7 @@ import com.buwin.tiktokvideodownload.ui.screens.home.components.HomeThemeButton
 import com.buwin.tiktokvideodownload.ui.screens.home.viewmodel.HomeViewModel
 import com.buwin.tiktokvideodownload.ui.theme.LocalIsDark
 import com.buwin.tiktokvideodownload.ui.theme.ThemePreferences
+import com.buwin.tiktokvideodownload.ui.theme.cardBorderColor
 import com.kyant.backdrop.Backdrop
 import com.kyant.backdrop.backdrops.layerBackdrop
 import com.kyant.backdrop.backdrops.rememberLayerBackdrop
@@ -78,7 +79,7 @@ fun HomeScreen(
     }
 
     val cardBackground = if (isDark) Color(0xFF1C1C1E) else Color.White
-    val cardBorderColor = if (isDark) Color(0xFF2C2C2E) else Color(0xFFF0F0F2)
+    val cardBorderColor = cardBorderColor(isDark)
 
     Box(modifier = modifier.fillMaxSize()) {
         // ── 1. Scrollable Content Layer (Captured into contentBackdrop) ──

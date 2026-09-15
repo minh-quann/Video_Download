@@ -16,7 +16,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -25,19 +27,23 @@ import com.buwin.tiktokvideodownload.data.auth.AuthManager
 import com.buwin.tiktokvideodownload.data.download.DownloadManagerHelper
 import com.buwin.tiktokvideodownload.data.model.DownloadRecord
 import com.buwin.tiktokvideodownload.data.repository.HistoryRepository
+import com.buwin.tiktokvideodownload.ui.components.dialog.AppConfirmationModal
 import com.buwin.tiktokvideodownload.ui.components.liquid.LiquidRoundButton
 import com.buwin.tiktokvideodownload.ui.components.liquid.LiquidTopBar
 import com.buwin.tiktokvideodownload.ui.screens.history.components.HistoryCloudBanner
 import com.buwin.tiktokvideodownload.ui.screens.history.components.HistoryDateGroupCard
 import com.buwin.tiktokvideodownload.ui.screens.history.components.HistoryEmptyState
+import com.buwin.tiktokvideodownload.ui.screens.history.components.HistorySkeleton
 import com.buwin.tiktokvideodownload.ui.screens.history.viewmodel.HistoryViewModel
 import com.buwin.tiktokvideodownload.ui.theme.LocalIsDark
+import com.buwin.tiktokvideodownload.ui.theme.cardBorderColor
 import com.kyant.backdrop.Backdrop
 import com.kyant.backdrop.backdrops.layerBackdrop
 import com.kyant.backdrop.backdrops.rememberLayerBackdrop
+import androidx.compose.ui.res.painterResource
+import com.buwin.tiktokvideodownload.R
 import io.github.alexzhirkevich.cupertino.icons.CupertinoIcons
 import io.github.alexzhirkevich.cupertino.icons.filled.Folder
-import io.github.alexzhirkevich.cupertino.icons.filled.Trash
 import io.github.alexzhirkevich.cupertino.icons.outlined.ArrowClockwise
 
 /**
@@ -61,6 +67,7 @@ fun HistoryScreen(
     val isDark = LocalIsDark.current
     val contentBackdrop = rememberLayerBackdrop()
     val uiState by viewModel.uiState.collectAsState()
+    var showClearConfirm by remember { mutableStateOf(false) }
 
     // Refresh history when screen becomes active
     LaunchedEffect(Unit) {
@@ -69,11 +76,20 @@ fun HistoryScreen(
 
     // Card styling matching iOS Inset Grouped / Liquid design
     val cardBackground = if (isDark) Color(0xFF1C1C1E) else Color.White
-    val cardBorderColor = if (isDark) Color(0xFF2C2C2E) else Color(0xFFF0F0F2)
+    val cardBorderColor = cardBorderColor(isDark)
     val dividerColor = if (isDark) Color(0xFF2C2C2E) else Color(0xFFF2F2F7)
 
     Box(modifier = modifier.fillMaxSize()) {
-        if (uiState.records.isEmpty()) {
+        if (uiState.isLoading) {
+            // Shimmer skeleton state while records are loading
+            HistorySkeleton(
+                contentBackdrop = contentBackdrop,
+                cardBackground = cardBackground,
+                cardBorderColor = cardBorderColor,
+                dividerColor = dividerColor,
+                isDark = isDark
+            )
+        } else if (uiState.records.isEmpty()) {
             HistoryEmptyState(
                 contentBackdrop = contentBackdrop,
                 showCloudPrompt = uiState.currentUser == null,
@@ -175,22 +191,39 @@ fun HistoryScreen(
                     )
                 }
 
-                // Clear History Button
+                // Clear History Button with modern Solar Minimalistic Trash Icon
                 if (uiState.records.isNotEmpty()) {
                     LiquidRoundButton(
-                        onClick = { viewModel.clearHistory() },
+                        onClick = { showClearConfirm = true },
                         backdrop = contentBackdrop,
                         size = 40.dp,
                         surfaceColor = buttonBgColor
                     ) {
                         Icon(
-                            imageVector = CupertinoIcons.Filled.Trash,
+                            painter = painterResource(id = R.drawable.ic_trash_minimal),
                             contentDescription = "Clear History",
-                            tint = Color(0xFFEF4444),
-                            modifier = Modifier.size(18.dp)
+                            tint = Color(0xFFFF453A),
+                            modifier = Modifier.size(20.dp)
                         )
                     }
                 }
+            }
+        )
+
+        // Confirmation Modal before clearing all download history
+        AppConfirmationModal(
+            visible = showClearConfirm,
+            onDismissRequest = { showClearConfirm = false },
+            title = "Xóa toàn bộ lịch sử?",
+            message = "Tất cả các bản ghi tải về trong danh sách lịch sử và trên đám mây sẽ bị xóa. Các tệp đã tải trong máy vẫn được giữ nguyên.",
+            confirmText = "Xóa lịch sử",
+            cancelText = "Hủy",
+            isDestructive = true,
+            backdrop = backdrop,
+            isDark = isDark,
+            onConfirm = {
+                showClearConfirm = false
+                viewModel.clearHistory()
             }
         )
     }

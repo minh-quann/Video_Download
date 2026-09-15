@@ -51,6 +51,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.buwin.tiktokvideodownload.ui.theme.LocalIsDark
+import com.buwin.tiktokvideodownload.ui.theme.cardBorderColor
 import com.kyant.backdrop.Backdrop
 import com.kyant.backdrop.drawBackdrop
 import com.kyant.backdrop.effects.blur
@@ -100,10 +101,10 @@ fun AppConfirmationModal(
     // Spring animation specs matching iOS 26 Liquid Glass
     val springSpec = spring<Float>(dampingRatio = 0.82f, stiffness = 380f)
 
-    // Palette tokens
-    val dimColor = if (isLightTheme) Color.Black.copy(alpha = 0.35f) else Color.Black.copy(alpha = 0.65f)
-    val cardBgColor = if (isLightTheme) Color.White.copy(alpha = 0.85f) else Color(0xFF1C1C1E).copy(alpha = 0.88f)
-    val cardBorderColor = if (isLightTheme) Color.Black.copy(alpha = 0.08f) else Color.White.copy(alpha = 0.12f)
+    // Palette tokens: Solid opaque card background to completely cover underlying content
+    val dimColor = if (isLightTheme) Color.Black.copy(alpha = 0.45f) else Color.Black.copy(alpha = 0.70f)
+    val cardBgColor = if (isLightTheme) Color.White else Color(0xFF1C1C1E)
+    val cardBorder = cardBorderColor(isDark)
     val titleColor = if (isLightTheme) Color(0xFF0F172A) else Color(0xFFF8FAFC)
     val subtitleColor = if (isLightTheme) Color(0xFF64748B) else Color(0xFF94A3B8)
 
@@ -126,44 +127,18 @@ fun AppConfirmationModal(
                 ),
             contentAlignment = Alignment.Center
         ) {
-            val cardModifier = if (backdrop != null) {
-                Modifier
-                    .padding(horizontal = 32.dp)
-                    .fillMaxWidth()
-                    .drawBackdrop(
-                        backdrop = backdrop,
-                        shape = { RoundedRectangle(28.dp) },
-                        effects = {
-                            vibrancy()
-                            blur(if (isLightTheme) 20f.dp.toPx() else 16f.dp.toPx())
-                            lens(
-                                refractionHeight = 18f.dp.toPx(),
-                                refractionAmount = 24f.dp.toPx(),
-                                depthEffect = true
-                            )
-                        },
-                        highlight = { Highlight.Plain },
-                        shadow = {
-                            Shadow(
-                                radius = 24f.dp,
-                                color = if (isLightTheme) Color.Black.copy(alpha = 0.12f) else Color.Black.copy(alpha = 0.45f)
-                            )
-                        },
-                        onDrawSurface = { drawRect(cardBgColor) }
-                    )
-            } else {
-                Modifier
-                    .padding(horizontal = 32.dp)
-                    .fillMaxWidth()
-                    .shadow(
-                        elevation = 16.dp,
-                        shape = RoundedCornerShape(28.dp),
-                        spotColor = Color.Black.copy(alpha = if (isLightTheme) 0.15f else 0.5f)
-                    )
-                    .clip(RoundedCornerShape(28.dp))
-                    .background(cardBgColor)
-                    .border(BorderStroke(1.dp, cardBorderColor), RoundedCornerShape(28.dp))
-            }
+            val cardModifier = Modifier
+                .padding(horizontal = 32.dp)
+                .fillMaxWidth()
+                .shadow(
+                    elevation = 20.dp,
+                    shape = RoundedCornerShape(28.dp),
+                    spotColor = Color.Black.copy(alpha = if (isLightTheme) 0.18f else 0.55f),
+                    ambientColor = Color.Black.copy(alpha = if (isLightTheme) 0.08f else 0.35f)
+                )
+                .clip(RoundedCornerShape(28.dp))
+                .background(cardBgColor)
+                .border(BorderStroke(1.dp, cardBorder), RoundedCornerShape(28.dp))
 
             Column(
                 modifier = Modifier

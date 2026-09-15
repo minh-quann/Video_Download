@@ -172,7 +172,7 @@ fun VideoPreviewSkeleton(
         repeat(3) {
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(20.dp),
+                shape = RoundedCornerShape(26.dp),
                 colors = CardDefaults.cardColors(containerColor = cardBackground),
                 border = BorderStroke(1.dp, cardBorderColor)
             ) {

@@ -45,6 +45,7 @@ import com.buwin.tiktokvideodownload.ui.screens.settings.components.SettingsSect
 import com.buwin.tiktokvideodownload.ui.theme.AppThemeMode
 import com.buwin.tiktokvideodownload.ui.theme.LocalIsDark
 import com.buwin.tiktokvideodownload.ui.theme.ThemePreferences
+import com.buwin.tiktokvideodownload.ui.theme.cardBorderColor
 import com.kyant.backdrop.Backdrop
 import com.kyant.backdrop.backdrops.layerBackdrop
 import com.kyant.backdrop.backdrops.rememberLayerBackdrop
@@ -77,7 +78,7 @@ fun ThemeSettingsScreen(
     val currentMode = themePreferences.currentThemeMode
 
     val cardBackground = if (isDark) Color(0xFF1C1C1E) else Color.White
-    val cardBorderColor = if (isDark) Color(0xFF2C2C2E) else Color(0xFFF0F0F2)
+    val cardBorderColor = cardBorderColor(isDark)
     val dividerColor = if (isDark) Color(0xFF2C2C2E) else Color(0xFFF2F2F7)
 
     Box(modifier = modifier.fillMaxSize()) {
