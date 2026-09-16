@@ -6,6 +6,7 @@ import android.net.Uri
 import android.os.Environment
 import android.widget.Toast
 import com.buwin.tiktokvideodownload.data.download.DownloadManagerHelper
+import com.buwin.tiktokvideodownload.data.editor.AdvancedEditorEngine
 import com.buwin.tiktokvideodownload.data.editor.VideoEditorEngine
 import com.buwin.tiktokvideodownload.data.model.DownloadRecord
 import com.buwin.tiktokvideodownload.ui.components.editor.model.EditorOperation
@@ -16,7 +17,7 @@ import java.io.File
 
 /**
  * Executes a pipeline of editing operations sequentially.
- * Each step feeds its output as the next step's input, allowing combinations like Trim + Mute.
+ * Each step feeds its output as the next step's input, allowing combinations like Trim + Speed + Mute.
  */
 object EditorPipelineExecutor {
 
@@ -77,33 +78,33 @@ object EditorPipelineExecutor {
                 val stepProgressBase = index * progressPerStep
                 val isFinalStep = index == ops.lastIndex
                 val outputFile = if (isFinalStep) {
-                    val suffix = labelParts.joinToString("_").ifEmpty { "edited" }
-                    File(outputDir, "${baseName}_${suffix}_$timestamp.mp4")
+                    File(outputDir, "${baseName}_edited_$timestamp.mp4")
                 } else {
                     File(context.cacheDir, "editor_step_${index}_$timestamp.mp4").also {
                         tempFiles.add(it)
                     }
                 }
 
-                val stepResult = when (op) {
+                val stepResult: Result<File> = when (op) {
                     EditorOperation.TRIM -> {
-                        labelParts.add("trimmed")
+                        labelParts.add("Đã cắt")
                         VideoEditorEngine.trimVideo(
                             context, currentInputUri, outputFile,
                             state.startTrimMs, state.endTrimMs
                         ) { p -> onProgress(stepProgressBase + p * progressPerStep) }
                     }
                     EditorOperation.MUTE -> {
-                        labelParts.add("muted")
+                        labelParts.add("Tắt tiếng")
                         // If trim was already applied, mute the full trimmed output
-                        val start = if (labelParts.contains("trimmed")) 0L else state.startTrimMs
-                        val end = if (labelParts.contains("trimmed")) Long.MAX_VALUE else state.endTrimMs
+                        val alreadyTrimmed = labelParts.contains("Đã cắt")
+                        val start = if (alreadyTrimmed) 0L else state.startTrimMs
+                        val end = if (alreadyTrimmed) Long.MAX_VALUE else state.endTrimMs
                         VideoEditorEngine.muteVideo(
                             context, currentInputUri, outputFile, start, end
                         ) { p -> onProgress(stepProgressBase + p * progressPerStep) }
                     }
                     EditorOperation.REPLACE_AUDIO -> {
-                        labelParts.add("mux")
+                        labelParts.add("Ghép nhạc")
                         val audioUri = state.customAudioUri
                             ?: return@withContext Result.failure(
                                 IllegalStateException("Vui lòng chọn tệp âm thanh cần ghép")
@@ -112,6 +113,34 @@ object EditorPipelineExecutor {
                             context, currentInputUri, audioUri, outputFile
                         ) { p -> onProgress(stepProgressBase + p * progressPerStep) }
                     }
+                    EditorOperation.SPEED -> {
+                        labelParts.add("${state.speedMultiplier}x")
+                        // Speed change requires Media3 Transformer (re-encoding)
+                        withContext(Dispatchers.Main) {
+                            AdvancedEditorEngine.changeSpeed(
+                                context, currentInputUri, outputFile,
+                                state.speedMultiplier
+                            ) { p -> onProgress(stepProgressBase + p * progressPerStep) }
+                        }
+                    }
+                    EditorOperation.ROTATE -> {
+                        labelParts.add("Xoay ${state.rotationDegrees.toInt()}°")
+                        withContext(Dispatchers.Main) {
+                            AdvancedEditorEngine.rotateVideo(
+                                context, currentInputUri, outputFile,
+                                state.rotationDegrees
+                            ) { p -> onProgress(stepProgressBase + p * progressPerStep) }
+                        }
+                    }
+                    EditorOperation.ADJUST -> {
+                        labelParts.add("Hiệu chỉnh")
+                        withContext(Dispatchers.Main) {
+                            AdvancedEditorEngine.adjustColors(
+                                context, currentInputUri, outputFile,
+                                state.brightness, state.contrast, state.saturation
+                            ) { p -> onProgress(stepProgressBase + p * progressPerStep) }
+                        }
+                    }
                     EditorOperation.EXTRACT_AUDIO -> {
                         // Should not reach here in pipeline mode
                         Result.failure(IllegalStateException("Extract audio cannot be combined"))
@@ -119,49 +148,33 @@ object EditorPipelineExecutor {
                 }
 
                 stepResult.onFailure { err ->
-                    // Cleanup temp files on failure
                     tempFiles.forEach { it.delete() }
                     return@withContext Result.failure(err)
                 }
 
                 // Use this step's output as the next step's input
-                currentInputUri = Uri.fromFile(outputFile)
+                currentInputUri = Uri.fromFile(
+                    stepResult.getOrNull() ?: return@withContext Result.failure(
+                        IllegalStateException("Step output missing")
+                    )
+                )
             }
 
             // Cleanup temp intermediate files
             tempFiles.forEach { it.delete() }
 
-            // Final output file is the last pipeline output
-            val finalFile = File(
-                outputDir,
-                "${baseName}_${labelParts.joinToString("_")}_$timestamp.mp4"
-            )
-
-            // Build display title
-            val displayOps = ops.joinToString(" + ") { op ->
-                when (op) {
-                    EditorOperation.TRIM -> "Đã cắt"
-                    EditorOperation.MUTE -> "Tắt tiếng"
-                    EditorOperation.REPLACE_AUDIO -> "Ghép nhạc"
-                    EditorOperation.EXTRACT_AUDIO -> "Âm thanh"
-                }
-            }
-
-            // The final file was already written by the last step
-            // We need to find it - it's the output of the final step
-            val lastOutputName = "${baseName}_${labelParts.joinToString("_")}_$timestamp.mp4"
-            val actualFinalFile = File(outputDir, lastOutputName)
-
-            if (!actualFinalFile.exists()) {
-                // The final step already wrote to the correct path
+            val finalFile = File(outputDir, "${baseName}_edited_$timestamp.mp4")
+            if (!finalFile.exists()) {
                 return@withContext Result.failure(IllegalStateException("Export file not found"))
             }
 
+            val displayOps = labelParts.joinToString(" + ")
+
             Result.success(
                 ExportResult(
-                    file = actualFinalFile,
+                    file = finalFile,
                     title = "[$displayOps] ${record.title}",
-                    formatTitle = "Video ${labelParts.joinToString(" + ").uppercase()}",
+                    formatTitle = "Video đã chỉnh sửa",
                     fileExtension = "mp4"
                 )
             )

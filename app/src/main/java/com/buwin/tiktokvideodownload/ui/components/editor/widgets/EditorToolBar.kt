@@ -1,8 +1,16 @@
 package com.buwin.tiktokvideodownload.ui.components.editor.widgets
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -12,13 +20,14 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Audiotrack
 import androidx.compose.material.icons.filled.ContentCut
-import androidx.compose.material.icons.filled.VolumeOff
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
+import androidx.compose.material.icons.filled.RotateRight
+import androidx.compose.material.icons.filled.Speed
+import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -26,17 +35,30 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.buwin.tiktokvideodownload.ui.components.editor.model.EditorToolCategory
+import com.kyant.backdrop.Backdrop
+import com.kyant.backdrop.drawBackdrop
+import com.kyant.backdrop.effects.blur
+import com.kyant.backdrop.effects.lens
+import com.kyant.backdrop.effects.vibrancy
+import com.kyant.backdrop.highlight.Highlight
+import com.kyant.backdrop.shadow.InnerShadow
+import com.kyant.backdrop.shadow.Shadow
+import com.kyant.shapes.RoundedRectangle
 import io.github.alexzhirkevich.cupertino.icons.CupertinoIcons
+import io.github.alexzhirkevich.cupertino.icons.filled.CircleLefthalfed
 import io.github.alexzhirkevich.cupertino.icons.outlined.MusicNote
+import io.github.alexzhirkevich.cupertino.icons.outlined.Paintpalette
+import io.github.alexzhirkevich.cupertino.icons.outlined.SunMax
+import androidx.compose.ui.graphics.vector.ImageVector
 
 /**
- * Multi-select tool bar for the video editor.
- * Each tool can be toggled independently (pipeline approach), not mutually exclusive.
- * Active tools show a check indicator and highlighted border.
+ * Liquid Glass bottom toolbar with horizontally scrollable chips.
+ * Context panels slide up with glass-styled backgrounds.
  */
 @Composable
 fun EditorToolBar(
@@ -44,119 +66,388 @@ fun EditorToolBar(
     isMuteEnabled: Boolean,
     isReplaceAudioEnabled: Boolean,
     isExtractAudioOnly: Boolean,
+    speedMultiplier: Float,
+    rotationDegrees: Float,
+    brightness: Float,
+    contrast: Float,
+    saturation: Float,
+    activeCategory: EditorToolCategory?,
+    backdrop: Backdrop,
     onToggleTrim: () -> Unit,
     onToggleMute: () -> Unit,
     onToggleReplaceAudio: () -> Unit,
     onToggleExtractAudio: () -> Unit,
+    onSelectCategory: (EditorToolCategory?) -> Unit,
+    onSpeedChange: (Float) -> Unit,
+    onRotate: () -> Unit,
+    onBrightnessChange: (Float) -> Unit,
+    onContrastChange: (Float) -> Unit,
+    onSaturationChange: (Float) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Row(
-        modifier = modifier
+    Column(modifier = modifier.fillMaxWidth()) {
+        // ── Context Panel (Liquid Glass background) ──
+        AnimatedContent(
+            targetState = activeCategory,
+            transitionSpec = {
+                (slideInVertically(tween(250)) { it / 2 } + fadeIn(tween(200)))
+                    .togetherWith(slideOutVertically(tween(150)) { it / 2 } + fadeOut(tween(100)))
+            },
+            label = "context_panel"
+        ) { category ->
+            when (category) {
+                EditorToolCategory.TRIM -> {
+                    LiquidContextPanel(backdrop = backdrop) {
+                        ToggleRow(
+                            items = listOf(
+                                ToggleItem("Cắt Video", isTrimEnabled) { onToggleTrim() },
+                                ToggleItem("Tách Nhạc", isExtractAudioOnly) { onToggleExtractAudio() }
+                            )
+                        )
+                    }
+                }
+                EditorToolCategory.AUDIO -> {
+                    LiquidContextPanel(backdrop = backdrop) {
+                        ToggleRow(
+                            items = listOf(
+                                ToggleItem("Tắt Tiếng", isMuteEnabled) { onToggleMute() },
+                                ToggleItem("Ghép Nhạc", isReplaceAudioEnabled) { onToggleReplaceAudio() }
+                            )
+                        )
+                    }
+                }
+                EditorToolCategory.SPEED -> {
+                    LiquidContextPanel(backdrop = backdrop) {
+                        SpeedPanel(currentSpeed = speedMultiplier, onSpeedChange = onSpeedChange)
+                    }
+                }
+                EditorToolCategory.ROTATE -> {
+                    LiquidContextPanel(backdrop = backdrop) {
+                        RotatePanel(currentDegrees = rotationDegrees, onRotate = onRotate)
+                    }
+                }
+                EditorToolCategory.ADJUST -> {
+                    LiquidContextPanel(backdrop = backdrop) {
+                        AdjustPanel(
+                            brightness = brightness,
+                            contrast = contrast,
+                            saturation = saturation,
+                            backdrop = backdrop,
+                            onBrightnessChange = onBrightnessChange,
+                            onContrastChange = onContrastChange,
+                            onSaturationChange = onSaturationChange
+                        )
+                    }
+                }
+                null -> Spacer(modifier = Modifier.height(0.dp))
+            }
+        }
+
+        // ── Horizontal Scrollable Liquid Glass Chips ──
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState())
+                .padding(horizontal = 12.dp, vertical = 10.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            LiquidEditorChip(
+                label = "Cắt",
+                icon = Icons.Filled.ContentCut,
+                isActive = activeCategory == EditorToolCategory.TRIM,
+                hasActiveOp = isTrimEnabled || isExtractAudioOnly,
+                backdrop = backdrop,
+                onClick = { onSelectCategory(if (activeCategory == EditorToolCategory.TRIM) null else EditorToolCategory.TRIM) }
+            )
+            LiquidEditorChip(
+                label = "Âm thanh",
+                icon = CupertinoIcons.Outlined.MusicNote,
+                isActive = activeCategory == EditorToolCategory.AUDIO,
+                hasActiveOp = isMuteEnabled || isReplaceAudioEnabled,
+                backdrop = backdrop,
+                onClick = { onSelectCategory(if (activeCategory == EditorToolCategory.AUDIO) null else EditorToolCategory.AUDIO) }
+            )
+            LiquidEditorChip(
+                label = "Tốc độ",
+                icon = Icons.Filled.Speed,
+                isActive = activeCategory == EditorToolCategory.SPEED,
+                hasActiveOp = speedMultiplier != 1.0f,
+                backdrop = backdrop,
+                onClick = { onSelectCategory(if (activeCategory == EditorToolCategory.SPEED) null else EditorToolCategory.SPEED) }
+            )
+            LiquidEditorChip(
+                label = "Xoay",
+                icon = Icons.Filled.RotateRight,
+                isActive = activeCategory == EditorToolCategory.ROTATE,
+                hasActiveOp = rotationDegrees != 0f,
+                backdrop = backdrop,
+                onClick = { onSelectCategory(if (activeCategory == EditorToolCategory.ROTATE) null else EditorToolCategory.ROTATE) }
+            )
+            LiquidEditorChip(
+                label = "Điều chỉnh",
+                icon = Icons.Filled.Tune,
+                isActive = activeCategory == EditorToolCategory.ADJUST,
+                hasActiveOp = brightness != 0f || contrast != 0f || saturation != 0f,
+                backdrop = backdrop,
+                onClick = { onSelectCategory(if (activeCategory == EditorToolCategory.ADJUST) null else EditorToolCategory.ADJUST) }
+            )
+        }
+    }
+}
+
+// ── Liquid Glass Context Panel Container ──
+
+@Composable
+private fun LiquidContextPanel(
+    backdrop: Backdrop,
+    content: @Composable () -> Unit
+) {
+    Box(
+        modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 10.dp),
+            .padding(horizontal = 8.dp)
+            .drawBackdrop(
+                backdrop = backdrop,
+                shape = { RoundedRectangle(20f.dp) },
+                effects = {
+                    vibrancy()
+                    blur(6f.dp.toPx())
+                    lens(12f.dp.toPx(), 20f.dp.toPx())
+                },
+                highlight = { Highlight.Default.copy(alpha = 0.25f) },
+                shadow = { Shadow(radius = 10f.dp, color = Color.Black.copy(alpha = 0.2f)) },
+                innerShadow = { InnerShadow(radius = 4f.dp, alpha = 0.08f) },
+                onDrawSurface = {
+                    drawRect(Color.White.copy(alpha = 0.04f))
+                }
+            )
+            .padding(horizontal = 16.dp, vertical = 14.dp)
+    ) {
+        content()
+    }
+}
+
+// ── Sub-components ──
+
+data class ToggleItem(
+    val label: String,
+    val isActive: Boolean,
+    val onClick: () -> Unit
+)
+
+@Composable
+private fun ToggleRow(items: List<ToggleItem>) {
+    val accentColor = Color(0xFF007AFF)
+    Row(
+        modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        EditorToolChip(
-            title = "Cắt Video",
-            icon = Icons.Filled.ContentCut,
-            isActive = isTrimEnabled,
-            // Disable trim toggle when extract-audio-only mode is on
-            isEnabled = !isExtractAudioOnly,
-            onClick = onToggleTrim,
-            modifier = Modifier.weight(1f)
+        items.forEach { item ->
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(if (item.isActive) accentColor else Color.White.copy(alpha = 0.06f))
+                    .border(
+                        1.dp,
+                        if (item.isActive) accentColor.copy(alpha = 0.5f) else Color.White.copy(alpha = 0.08f),
+                        RoundedCornerShape(12.dp)
+                    )
+                    .clickable { item.onClick() }
+                    .padding(vertical = 12.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = item.label,
+                    color = Color.White,
+                    fontSize = 13.sp,
+                    fontWeight = if (item.isActive) FontWeight.Bold else FontWeight.Medium,
+                    textAlign = TextAlign.Center
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SpeedPanel(currentSpeed: Float, onSpeedChange: (Float) -> Unit) {
+    val speeds = listOf(0.25f, 0.5f, 0.75f, 1.0f, 1.5f, 2.0f, 3.0f)
+    val accentColor = Color(0xFF007AFF)
+
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Text(
+            text = "Tốc độ phát: ${currentSpeed}x",
+            color = Color.White,
+            fontSize = 13.sp,
+            fontWeight = FontWeight.SemiBold
         )
-        EditorToolChip(
-            title = "Tắt Tiếng",
-            icon = Icons.Filled.VolumeOff,
-            isActive = isMuteEnabled,
-            // Mute conflicts with Replace Audio and Extract Audio
-            isEnabled = !isReplaceAudioEnabled && !isExtractAudioOnly,
-            onClick = onToggleMute,
-            modifier = Modifier.weight(1f)
+        Spacer(modifier = Modifier.height(12.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            speeds.forEach { speed ->
+                val isSelected = currentSpeed == speed
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(if (isSelected) accentColor else Color.White.copy(alpha = 0.06f))
+                        .border(
+                            0.5.dp,
+                            if (isSelected) accentColor.copy(alpha = 0.6f) else Color.White.copy(alpha = 0.06f),
+                            RoundedCornerShape(10.dp)
+                        )
+                        .clickable { onSpeedChange(speed) }
+                        .padding(vertical = 10.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "${speed}x",
+                        color = if (isSelected) Color.White else Color(0xFF9CA3AF),
+                        fontSize = 12.sp,
+                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                        textAlign = TextAlign.Center
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun RotatePanel(currentDegrees: Float, onRotate: () -> Unit) {
+    val accentColor = Color(0xFF007AFF)
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .weight(1f)
+                .clip(RoundedCornerShape(12.dp))
+                .background(accentColor.copy(alpha = 0.12f))
+                .border(1.dp, accentColor.copy(alpha = 0.25f), RoundedCornerShape(12.dp))
+                .clickable { onRotate() }
+                .padding(vertical = 14.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.RotateRight,
+                    contentDescription = null,
+                    tint = accentColor,
+                    modifier = Modifier.height(22.dp)
+                )
+                Text(
+                    text = "Xoay 90°",
+                    color = Color.White,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+        }
+        Box(
+            modifier = Modifier
+                .clip(RoundedCornerShape(12.dp))
+                .background(Color.White.copy(alpha = 0.06f))
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = "${currentDegrees.toInt()}°",
+                color = if (currentDegrees != 0f) accentColor else Color(0xFF9CA3AF),
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Bold
+            )
+        }
+    }
+}
+
+@Composable
+private fun AdjustPanel(
+    brightness: Float,
+    contrast: Float,
+    saturation: Float,
+    backdrop: Backdrop,
+    onBrightnessChange: (Float) -> Unit,
+    onContrastChange: (Float) -> Unit,
+    onSaturationChange: (Float) -> Unit
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        AdjustSlider(
+            label = "Độ sáng",
+            value = brightness,
+            onValueChange = onBrightnessChange,
+            icon = CupertinoIcons.Outlined.SunMax,
+            backdrop = backdrop
         )
-        EditorToolChip(
-            title = "Ghép Nhạc",
-            icon = Icons.Filled.Audiotrack,
-            isActive = isReplaceAudioEnabled,
-            // Replace audio conflicts with Mute and Extract
-            isEnabled = !isMuteEnabled && !isExtractAudioOnly,
-            onClick = onToggleReplaceAudio,
-            modifier = Modifier.weight(1f)
+        AdjustSlider(
+            label = "Tương phản",
+            value = contrast,
+            onValueChange = onContrastChange,
+            icon = CupertinoIcons.Filled.CircleLefthalfed,
+            backdrop = backdrop
         )
-        EditorToolChip(
-            title = "Tách Nhạc",
-            icon = CupertinoIcons.Outlined.MusicNote,
-            isActive = isExtractAudioOnly,
-            // Extract audio is standalone – disables all other ops
-            isEnabled = !isTrimEnabled && !isMuteEnabled && !isReplaceAudioEnabled,
-            onClick = onToggleExtractAudio,
-            modifier = Modifier.weight(1f)
+        AdjustSlider(
+            label = "Bão hòa",
+            value = saturation,
+            onValueChange = onSaturationChange,
+            icon = CupertinoIcons.Outlined.Paintpalette,
+            backdrop = backdrop
         )
     }
 }
 
-/**
- * Individual toggle chip for an editor tool.
- * Shows active state with accent color and a top indicator dot.
- */
 @Composable
-private fun EditorToolChip(
-    title: String,
+private fun AdjustSlider(
+    label: String,
+    value: Float,
+    onValueChange: (Float) -> Unit,
     icon: ImageVector,
-    isActive: Boolean,
-    isEnabled: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    backdrop: Backdrop
 ) {
-    val accentColor = Color(0xFF007AFF)
-    val bgColor = when {
-        isActive -> accentColor
-        !isEnabled -> Color(0xFF151518)
-        else -> Color(0xFF1E1E22)
-    }
-    val contentColor = when {
-        isActive -> Color.White
-        !isEnabled -> Color.Gray.copy(alpha = 0.5f)
-        else -> Color.LightGray
-    }
-    val borderColor = if (isActive) accentColor.copy(alpha = 0.6f) else Color.Transparent
-
-    Card(
-        modifier = modifier
-            .clip(RoundedCornerShape(16.dp))
-            .border(1.5.dp, borderColor, RoundedCornerShape(16.dp))
-            .clickable(enabled = isEnabled || isActive) { onClick() },
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = bgColor)
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 12.dp, horizontal = 6.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            // Active indicator dot
-            Box(
-                modifier = Modifier
-                    .size(5.dp)
-                    .clip(RoundedCornerShape(50))
-                    .background(if (isActive) Color.White else Color.Transparent)
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = contentColor,
-                modifier = Modifier.size(20.dp)
-            )
-            Spacer(modifier = Modifier.height(6.dp))
-            Text(
-                text = title,
-                color = contentColor,
-                fontSize = 11.5.sp,
-                fontWeight = if (isActive) FontWeight.Bold else FontWeight.Medium
-            )
-        }
+        Icon(
+            imageVector = icon,
+            contentDescription = label,
+            tint = if (value != 0f) Color.White else Color(0xFF9CA3AF),
+            modifier = Modifier.size(18.dp)
+        )
+        Text(
+            text = label,
+            color = if (value != 0f) Color.White else Color(0xFF9CA3AF),
+            fontSize = 11.5.sp,
+            fontWeight = FontWeight.Medium,
+            maxLines = 1,
+            modifier = Modifier.width(74.dp)
+        )
+        com.buwin.tiktokvideodownload.ui.components.liquid.LiquidSlider(
+            value = { value },
+            onValueChange = onValueChange,
+            valueRange = -1f..1f,
+            visibilityThreshold = 0.001f,
+            backdrop = backdrop,
+            modifier = Modifier.weight(1f)
+        )
+        Text(
+            text = "${(value * 100).toInt()}",
+            color = if (value != 0f) Color.White else Color(0xFF666666),
+            fontSize = 11.sp,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.width(30.dp),
+            textAlign = TextAlign.End
+        )
     }
 }

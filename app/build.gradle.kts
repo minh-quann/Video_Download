@@ -58,6 +58,11 @@ dependencies {
     implementation(libs.coil.compose)
     implementation(libs.okhttp)
 
+    // Media3 Transformer for advanced editing (speed, reverse, filters)
+    implementation(libs.media3.transformer)
+    implementation(libs.media3.effect)
+    implementation(libs.media3.common)
+
     // Firebase (Auth & Firestore)
     implementation(platform("com.google.firebase:firebase-bom:33.9.0"))
     implementation("com.google.firebase:firebase-auth")

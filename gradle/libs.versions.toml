@@ -8,6 +8,7 @@ lifecycleRuntimeKtx = "2.6.1"
 activityCompose = "1.8.0"
 kotlin = "2.4.10"
 composeBom = "2026.02.01"
+media3 = "1.6.0"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -32,6 +33,9 @@ okhttp = { group = "com.squareup.okhttp3", name = "okhttp", version = "4.12.0" }
 cupertino = { group = "io.github.alexzhirkevich", name = "cupertino", version = "0.1.0-alpha04" }
 cupertino-core = { group = "io.github.alexzhirkevich", name = "cupertino-core", version = "0.1.0-alpha04" }
 cupertino-icons-extended = { group = "io.github.alexzhirkevich", name = "cupertino-icons-extended", version = "0.1.0-alpha04" }
+media3-transformer = { group = "androidx.media3", name = "media3-transformer", version.ref = "media3" }
+media3-effect = { group = "androidx.media3", name = "media3-effect", version.ref = "media3" }
+media3-common = { group = "androidx.media3", name = "media3-common", version.ref = "media3" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
