@@ -23,6 +23,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
@@ -46,14 +47,14 @@ import kotlinx.coroutines.withContext
 import java.io.File
 
 /**
- * Full-featured Media Collection & Gallery screen.
+ * Native Gallery Screen styled cleanly after Samsung Gallery & Apple Photos.
  * Displays all device photos, videos, downloaded TikTok videos, and edited creations.
  */
 @Composable
 fun GalleryScreen(
     backdrop: Backdrop,
     downloadHelper: DownloadManagerHelper,
-    onPlayRecord: (DownloadRecord) -> Unit,
+    onPlayRecord: (DownloadRecord, Rect?) -> Unit,
     onEditRecord: (DownloadRecord) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -118,20 +119,20 @@ fun GalleryScreen(
     }
 
     Box(modifier = modifier.fillMaxSize()) {
-        // ── 2-Column Media Grid ──
+        // ── 3-Column Native Gallery Grid (Apple / Samsung style) ──
         LazyVerticalGrid(
-            columns = GridCells.Fixed(2),
+            columns = GridCells.Fixed(3),
             modifier = Modifier
                 .layerBackdrop(contentBackdrop)
                 .fillMaxSize()
-                .padding(horizontal = 14.dp),
-            contentPadding = PaddingValues(top = 118.dp, bottom = 120.dp),
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
+                .padding(horizontal = 2.dp),
+            contentPadding = PaddingValues(top = 112.dp, bottom = 110.dp),
+            horizontalArrangement = Arrangement.spacedBy(2.dp),
+            verticalArrangement = Arrangement.spacedBy(2.dp)
         ) {
             // Empty state placeholder
             if (mediaItems.isEmpty() && !isLoading) {
-                item(span = { GridItemSpan(2) }) {
+                item(span = { GridItemSpan(3) }) {
                     GalleryEmptyState(
                         isDark = isDark,
                         hasPermission = hasPermission,
@@ -142,13 +143,13 @@ fun GalleryScreen(
                 }
             }
 
-            // Media items
+            // Media items: direct click opens full-screen player, long click opens actions
             items(mediaItems, key = { it.id }) { item ->
                 GalleryMediaCard(
                     item = item,
                     isDark = isDark,
-                    onClick = { selectedItemForActions = item },
-                    onQuickEdit = { onEditRecord(item.toDownloadRecord()) }
+                    onClick = { bounds -> onPlayRecord(item.toDownloadRecord(), bounds) },
+                    onLongClick = { selectedItemForActions = item }
                 )
             }
         }
@@ -170,7 +171,7 @@ fun GalleryScreen(
                 onDismissRequest = { selectedItemForActions = null },
                 onPlay = {
                     selectedItemForActions = null
-                    onPlayRecord(item.toDownloadRecord())
+                    onPlayRecord(item.toDownloadRecord(), null)
                 },
                 onEdit = {
                     selectedItemForActions = null

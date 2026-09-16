@@ -510,7 +510,7 @@ class DownloadManagerHelper(private val context: Context) {
     /**
      * Removes an uncompleted or cancelled record from history, storage, and cloud.
      */
-    private fun removeHistoryRecord(downloadId: Long) {
+    fun removeHistoryRecord(downloadId: Long) {
         try {
             val records = getHistory().toMutableList()
             val target = records.firstOrNull { it.downloadId == downloadId }
@@ -531,6 +531,28 @@ class DownloadManagerHelper(private val context: Context) {
                 scope.launch {
                     firestoreSync.deleteRecordFromCloud(downloadId)
                 }
+            }
+        } catch (_: Exception) {
+        }
+    }
+
+    /**
+     * Deletes a downloaded record from filesystem, MediaStore content resolver, history, and cloud.
+     */
+    fun deleteRecord(record: DownloadRecord, uri: Uri? = null) {
+        removeHistoryRecord(record.downloadId)
+        try {
+            val targetUri = uri ?: getDownloadedUri(record)
+            if (targetUri != null) {
+                if (targetUri.scheme == "file") {
+                    targetUri.path?.let { File(it).delete() }
+                } else {
+                    context.contentResolver.delete(targetUri, null, null)
+                }
+            }
+            if (record.filePath.isNotEmpty()) {
+                val f = File(record.filePath)
+                if (f.exists()) f.delete()
             }
         } catch (_: Exception) {
         }

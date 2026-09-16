@@ -19,6 +19,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.PlatformTextStyle
 import androidx.compose.ui.text.TextStyle
@@ -65,7 +66,7 @@ fun MainTabContainer(
     sharedUrl: String?,
     selectedTab: Int,
     onTabSelected: (Int) -> Unit,
-    onOpenPlayer: (DownloadRecord) -> Unit,
+    onOpenPlayer: (DownloadRecord, Rect?) -> Unit,
     onOpenEditor: (DownloadRecord) -> Unit,
     onMissingFile: (DownloadRecord) -> Unit,
     modifier: Modifier = Modifier
@@ -112,7 +113,7 @@ fun MainTabContainer(
                     backdrop = localBackdrop,
                     downloadHelper = downloadHelper,
                     authManager = authManager,
-                    onPlayRecord = onOpenPlayer
+                    onPlayRecord = { record -> onOpenPlayer(record, null) }
                 )
                 3 -> SettingsScreen(
                     backdrop = localBackdrop,

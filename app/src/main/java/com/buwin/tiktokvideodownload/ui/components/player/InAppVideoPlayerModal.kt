@@ -13,6 +13,10 @@ import android.widget.FrameLayout
 import android.widget.VideoView
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
@@ -25,11 +29,13 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -48,15 +54,26 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import coil.compose.SubcomposeAsyncImage
+import coil.request.ImageRequest
 import com.buwin.tiktokvideodownload.data.download.DownloadManagerHelper
 import com.buwin.tiktokvideodownload.data.model.DownloadRecord
 import com.buwin.tiktokvideodownload.ui.components.editor.VideoEditorModal
+import com.buwin.tiktokvideodownload.ui.components.dialog.AppConfirmationModal
+import com.buwin.tiktokvideodownload.ui.components.toast.AppToast
+import com.kyant.backdrop.backdrops.layerBackdrop
+import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import io.github.alexzhirkevich.cupertino.icons.CupertinoIcons
 import io.github.alexzhirkevich.cupertino.icons.filled.ArrowDownCircle
 import io.github.alexzhirkevich.cupertino.icons.filled.Pause
@@ -72,19 +89,35 @@ import kotlin.math.roundToInt
  * Composes dedicated modular components: PlayerTopBar, PlayerBottomBar,
  * PlayerGestureSurface, PlayerHudOverlays, and AudioPlayerContent.
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun InAppVideoPlayerModal(
     record: DownloadRecord,
     downloadHelper: DownloadManagerHelper,
     onDismiss: () -> Unit,
+    thumbnailBounds: Rect? = null,
     onRedownloadClick: ((DownloadRecord) -> Unit)? = null
 ) {
     val context = LocalContext.current
+    val density = LocalDensity.current
+    val mediaBackdrop = rememberLayerBackdrop()
     val coroutineScope = rememberCoroutineScope()
     val configuration = LocalConfiguration.current
     val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+    val screenWidthPx = remember(configuration, density) {
+        with(density) { configuration.screenWidthDp.dp.toPx() }
+    }
+    val screenHeightPx = remember(configuration, density) {
+        with(density) { configuration.screenHeightDp.dp.toPx() }
+    }
     val videoUri = remember(record) { downloadHelper.getDownloadedUri(record) }
     val isAudio = remember(record) { record.fileExtension.lowercase() in listOf("mp3", "m4a", "aac", "wav") }
+    val isImage = remember(record) {
+        record.fileExtension.lowercase() in listOf("jpg", "jpeg", "png", "webp", "gif", "bmp", "heic") ||
+        record.formatTitle.contains("ảnh", true) ||
+        record.formatTitle.contains("photo", true) ||
+        record.formatTitle.contains("image", true)
+    }
 
     val activity = remember(context) { context.findActivity() }
     val audioManager = remember(context) { context.getSystemService(Context.AUDIO_SERVICE) as? AudioManager }
@@ -96,6 +129,8 @@ fun InAppVideoPlayerModal(
     var showControls by remember { mutableStateOf(true) }
     var isMuted by remember { mutableStateOf(false) }
     var showEditorModal by remember { mutableStateOf(false) }
+    var showDetailsModal by remember { mutableStateOf(false) }
+    var showDeleteConfirmDialog by remember { mutableStateOf(false) }
 
     var videoViewRef by remember { mutableStateOf<VideoView?>(null) }
     var mediaPlayerRef by remember { mutableStateOf<MediaPlayer?>(null) }
@@ -139,18 +174,46 @@ fun InAppVideoPlayerModal(
     var rewindKey by remember { mutableIntStateOf(0) }
     var forwardKey by remember { mutableIntStateOf(0) }
 
+    var dismissProgress by remember { mutableFloatStateOf(0f) }
+    var isBackDismissing by remember { mutableStateOf(false) }
+    val backDismissAnim = remember { Animatable(0f) }
+    val enterAnim = remember { Animatable(0f) }
+
+    LaunchedEffect(Unit) {
+        enterAnim.animateTo(1f, spring(0.85f, 420f))
+    }
+
+    val handleDismiss: () -> Unit = {
+        if (!isBackDismissing) {
+            isBackDismissing = true
+            coroutineScope.launch {
+                if (isLandscape) {
+                    activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+                }
+                if (!isImage) {
+                    backDismissAnim.animateTo(1f, tween(220, easing = FastOutSlowInEasing))
+                    onDismiss()
+                } else {
+                    // Image mode triggers Hero exit animation in ZoomableAsyncImage
+                    delay(280)
+                    onDismiss()
+                }
+            }
+        }
+    }
+
     // Back button handling: exit landscape mode first, otherwise dismiss modal
     BackHandler {
         if (isLandscape) {
             activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
         } else {
-            onDismiss()
+            handleDismiss()
         }
     }
 
     // Auto-hide controls after 3.5 seconds of playing
-    LaunchedEffect(showControls, isPlaying, isAudio, showSeekHud) {
-        if (!isAudio && showControls && isPlaying && !isCompleted && !showSeekHud) {
+    LaunchedEffect(showControls, isPlaying, isAudio, isImage, showSeekHud) {
+        if (!isAudio && !isImage && showControls && isPlaying && !isCompleted && !showSeekHud) {
             delay(3500)
             showControls = false
         }
@@ -231,10 +294,89 @@ fun InAppVideoPlayerModal(
         }
     }
 
+    val handleEdit: () -> Unit = {
+        if (isImage) {
+            val editIntent = Intent(Intent.ACTION_EDIT).apply {
+                setDataAndType(videoUri, "image/*")
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+            }
+            try {
+                context.startActivity(Intent.createChooser(editIntent, "Chỉnh sửa ảnh"))
+            } catch (_: Exception) {
+                showEditorModal = true
+            }
+        } else {
+            videoViewRef?.pause()
+            isPlaying = false
+            showEditorModal = true
+        }
+    }
+
+    var isFavorite by remember(record.id) { mutableStateOf(false) }
+
+    val handleShare: () -> Unit = {
+        val shareIntent = Intent(Intent.ACTION_SEND).apply {
+            type = when {
+                isAudio -> "audio/*"
+                isImage -> "image/*"
+                else -> "video/*"
+            }
+            putExtra(Intent.EXTRA_STREAM, videoUri)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        context.startActivity(
+            Intent.createChooser(
+                shareIntent,
+                when {
+                    isAudio -> "Chia sẻ âm thanh"
+                    isImage -> "Chia sẻ hình ảnh"
+                    else -> "Chia sẻ video"
+                }
+            )
+        )
+    }
+
+    val handleDelete: () -> Unit = {
+        try {
+            downloadHelper.deleteRecord(record, videoUri)
+            AppToast.showSuccess("Đã xóa tệp", record.title)
+            handleDismiss()
+        } catch (e: Exception) {
+            AppToast.showError("Không thể xóa", e.localizedMessage ?: "Lỗi quyền truy cập")
+        }
+    }
+
+    val totalDismissFactor = (dismissProgress + backDismissAnim.value).coerceIn(0f, 1f)
+    val bgAlpha = (enterAnim.value * (1f - totalDismissFactor)).coerceIn(0f, 1f)
+    val controlsAlpha = (enterAnim.value * (1f - totalDismissFactor * 2.5f)).coerceIn(0f, 1f)
+
+    // Dynamic Video geometry calculations if thumbnailBounds is present
+    val videoScale = if (!isImage && thumbnailBounds != null && screenWidthPx > 0f) {
+        val targetScale = (thumbnailBounds.width / screenWidthPx).coerceIn(0.12f, 0.95f)
+        targetScale + (1f - targetScale) * enterAnim.value * (1f - backDismissAnim.value)
+    } else {
+        (1f - backDismissAnim.value * 0.35f).coerceAtLeast(0.4f)
+    }
+
+    val videoOffsetX = if (!isImage && thumbnailBounds != null) {
+        val targetOffsetX = thumbnailBounds.center.x - screenWidthPx / 2f
+        targetOffsetX * (backDismissAnim.value + (1f - enterAnim.value))
+    } else 0f
+
+    val videoOffsetY = if (!isImage && thumbnailBounds != null) {
+        val targetOffsetY = thumbnailBounds.center.y - screenHeightPx / 2f
+        targetOffsetY * (backDismissAnim.value + (1f - enterAnim.value))
+    } else 0f
+
+    val videoCornerRadius = if (!isImage && thumbnailBounds != null) {
+        (3f * (backDismissAnim.value + (1f - enterAnim.value))).coerceAtLeast(0f).dp
+    } else 0.dp
+
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.Black)
+            .background(Color.Black.copy(alpha = bgAlpha))
     ) {
         if (videoUri == null) {
             // Error: File not found state
@@ -242,48 +384,82 @@ fun InAppVideoPlayerModal(
                 isAudio = isAudio,
                 record = record,
                 downloadHelper = downloadHelper,
-                onDismiss = onDismiss,
+                onDismiss = handleDismiss,
                 onRedownloadClick = onRedownloadClick
             )
         } else {
             // Main Media Player Area
             Box(
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier
+                    .layerBackdrop(mediaBackdrop)
+                    .fillMaxSize()
+                    .then(
+                        if (!isImage) {
+                            Modifier
+                                .graphicsLayer {
+                                    scaleX = videoScale
+                                    scaleY = videoScale
+                                    translationX = videoOffsetX
+                                    translationY = videoOffsetY
+                                    alpha = (enterAnim.value * (1f - backDismissAnim.value)).coerceIn(0f, 1f)
+                                }
+                                .clip(RoundedCornerShape(videoCornerRadius))
+                        } else Modifier
+                    ),
                 contentAlignment = Alignment.Center
             ) {
-                // Native Android VideoView
-                AndroidView(
-                    factory = { ctx ->
-                        VideoView(ctx).apply {
-                            layoutParams = FrameLayout.LayoutParams(
-                                FrameLayout.LayoutParams.MATCH_PARENT,
-                                FrameLayout.LayoutParams.MATCH_PARENT
-                            )
-                            setVideoURI(videoUri)
-                            setOnPreparedListener { mp ->
-                                mediaPlayerRef = mp
-                                isPrepared = true
-                                totalDurationMs = mp.duration
-                                mp.isLooping = false
-                                if (isMuted) {
-                                    mp.setVolume(0f, 0f)
+                // Native Android VideoView or Zoomable Full Screen Image
+                if (isImage) {
+                    ZoomableAsyncImage(
+                        model = ImageRequest.Builder(context)
+                            .data(videoUri ?: record.coverUrl)
+                            .crossfade(true)
+                            .build(),
+                        contentDescription = record.title,
+                        thumbnailBounds = thumbnailBounds,
+                        isExiting = isBackDismissing,
+                        onSingleTap = { showControls = !showControls },
+                        onSwipeUp = { showDetailsModal = true },
+                        onDismissProgress = { progress ->
+                            dismissProgress = progress
+                        },
+                        onSwipeDown = onDismiss,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                } else {
+                    AndroidView(
+                        factory = { ctx ->
+                            VideoView(ctx).apply {
+                                layoutParams = FrameLayout.LayoutParams(
+                                    FrameLayout.LayoutParams.MATCH_PARENT,
+                                    FrameLayout.LayoutParams.MATCH_PARENT
+                                )
+                                setVideoURI(videoUri)
+                                setOnPreparedListener { mp ->
+                                    mediaPlayerRef = mp
+                                    isPrepared = true
+                                    totalDurationMs = mp.duration
+                                    mp.isLooping = false
+                                    if (isMuted) {
+                                        mp.setVolume(0f, 0f)
+                                    }
+                                    start()
+                                    isPlaying = true
                                 }
-                                start()
-                                isPlaying = true
+                                setOnCompletionListener {
+                                    isPlaying = false
+                                    isCompleted = true
+                                    showControls = true
+                                }
+                                setOnErrorListener { _, _, _ ->
+                                    true
+                                }
+                                videoViewRef = this
                             }
-                            setOnCompletionListener {
-                                isPlaying = false
-                                isCompleted = true
-                                showControls = true
-                            }
-                            setOnErrorListener { _, _, _ ->
-                                true
-                            }
-                            videoViewRef = this
-                        }
-                    },
-                    modifier = Modifier.fillMaxSize()
-                )
+                        },
+                        modifier = Modifier.fillMaxSize()
+                    )
+                }
 
                 // Dedicated Audio MP3 visualizer content
                 if (isAudio) {
@@ -302,7 +478,7 @@ fun InAppVideoPlayerModal(
                 PlayerGestureSurface(
                     totalDurationMs = totalDurationMs,
                     currentPositionMs = currentPositionMs,
-                    enabled = !isAudio,
+                    enabled = !isAudio && !isImage,
                     onBrightnessDelta = { step ->
                         val newBrightness = (currentBrightness + step).coerceIn(0.01f, 1f)
                         currentBrightness = newBrightness
@@ -372,7 +548,7 @@ fun InAppVideoPlayerModal(
                 )
 
                 // Buffering Spinner
-                if (!isPrepared) {
+                if (!isPrepared && !isImage) {
                     CircularProgressIndicator(
                         color = MaterialTheme.colorScheme.primary,
                         strokeWidth = 3.dp,
@@ -382,7 +558,7 @@ fun InAppVideoPlayerModal(
 
                 // Center Play/Pause Floating Action (for video only)
                 AnimatedVisibility(
-                    visible = !isAudio && (showControls || !isPlaying || isCompleted),
+                    visible = !isAudio && !isImage && (showControls || !isPlaying || isCompleted),
                     enter = fadeIn(),
                     exit = fadeOut()
                 ) {
@@ -446,38 +622,26 @@ fun InAppVideoPlayerModal(
 
             // Top Header Bar
             AnimatedVisibility(
-                visible = if (isAudio) true else showControls,
+                visible = if (isAudio) true else (showControls && dismissProgress < 0.05f),
                 enter = fadeIn(),
                 exit = fadeOut(),
-                modifier = Modifier.align(Alignment.TopCenter)
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .graphicsLayer { alpha = controlsAlpha }
             ) {
                 PlayerTopBar(
-                    title = record.title,
-                    author = record.author,
-                    formatTitle = record.formatTitle,
+                    backdrop = mediaBackdrop,
                     isMuted = isMuted,
                     isLandscape = isLandscape,
+                    showMute = !isImage && !isAudio,
+                    isImage = isImage,
                     onToggleMute = { isMuted = !isMuted },
-                    onDismiss = {
-                        if (isLandscape) {
-                            activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
-                        }
-                        onDismiss()
+                    onDismiss = handleDismiss,
+                    onShare = handleShare,
+                    onOpenDetails = {
+                        showDetailsModal = true
                     },
-                    onShare = {
-                        val shareIntent = Intent(Intent.ACTION_SEND).apply {
-                            type = if (isAudio) "audio/*" else "video/*"
-                            putExtra(Intent.EXTRA_STREAM, videoUri)
-                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                        }
-                        context.startActivity(
-                            Intent.createChooser(
-                                shareIntent,
-                                if (isAudio) "Chia sẻ âm thanh" else "Chia sẻ video"
-                            )
-                        )
-                    },
-                    onOpenEditor = if (!isAudio) {
+                    onOpenEditor = if (!isAudio && !isImage) {
                         {
                             videoViewRef?.pause()
                             isPlaying = false
@@ -489,10 +653,12 @@ fun InAppVideoPlayerModal(
 
             // Bottom Player Control Bar
             AnimatedVisibility(
-                visible = if (isAudio) true else showControls,
+                visible = if (isAudio) true else (!isImage && showControls && dismissProgress < 0.05f),
                 enter = fadeIn(),
                 exit = fadeOut(),
-                modifier = Modifier.align(Alignment.BottomCenter)
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .graphicsLayer { alpha = controlsAlpha }
             ) {
                 PlayerBottomBar(
                     currentPositionMs = currentPositionMs,
@@ -516,6 +682,35 @@ fun InAppVideoPlayerModal(
                 )
             }
 
+            // Bottom Action Bar for Images: Authentic Apple Photos style bar
+            AnimatedVisibility(
+                visible = isImage && showControls && dismissProgress < 0.05f,
+                enter = fadeIn(),
+                exit = fadeOut(),
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .graphicsLayer { alpha = controlsAlpha }
+                    .navigationBarsPadding()
+                    .padding(bottom = 24.dp)
+            ) {
+                PlayerImageBottomBar(
+                    backdrop = mediaBackdrop,
+                    isFavorite = isFavorite,
+                    onToggleFavorite = {
+                        isFavorite = !isFavorite
+                        if (isFavorite) {
+                            AppToast.showSuccess("Đã thêm vào mục yêu thích")
+                        } else {
+                            AppToast.showInfo("Đã xóa khỏi mục yêu thích")
+                        }
+                    },
+                    onOpenDetails = { showDetailsModal = true },
+                    onEdit = handleEdit,
+                    onShare = handleShare,
+                    onDelete = { showDeleteConfirmDialog = true }
+                )
+            }
+
             // Video Editor Modal
             if (showEditorModal) {
                 VideoEditorModal(
@@ -531,6 +726,31 @@ fun InAppVideoPlayerModal(
                     }
                 )
             }
+
+            // Media Details Bottom Sheet (revealed on swipe-up or info button click)
+            if (showDetailsModal) {
+                MediaDetailsBottomSheet(
+                    record = record,
+                    isImage = isImage,
+                    onDismissRequest = { showDetailsModal = false },
+                    onShare = handleShare
+                )
+            }
+
+            // Confirm Delete Dialog
+            AppConfirmationModal(
+                visible = showDeleteConfirmDialog,
+                onDismissRequest = { showDeleteConfirmDialog = false },
+                title = "Xóa tệp này?",
+                message = "Tệp \"${record.title}\" sẽ bị xóa vĩnh viễn khỏi thiết bị.",
+                confirmText = "Xóa tệp",
+                cancelText = "Hủy",
+                isDestructive = true,
+                onConfirm = {
+                    showDeleteConfirmDialog = false
+                    handleDelete()
+                }
+            )
         }
     }
 }
@@ -576,25 +796,25 @@ private fun FileNotFoundErrorView(
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             Surface(
                 onClick = onDismiss,
-                shape = RoundedCornerShape(12.dp),
+                shape = CircleShape,
                 color = Color.White.copy(alpha = 0.16f)
             ) {
                 Text(
                     text = "Đóng",
                     color = Color.White,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+                    modifier = Modifier.padding(horizontal = 18.dp, vertical = 10.dp),
                     fontWeight = FontWeight.Medium
                 )
             }
             Surface(
                 onClick = { downloadHelper.openDownloadsFolder() },
-                shape = RoundedCornerShape(12.dp),
+                shape = CircleShape,
                 color = Color.White.copy(alpha = 0.16f)
             ) {
                 Text(
                     text = "Mở thư mục",
                     color = Color.White,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+                    modifier = Modifier.padding(horizontal = 18.dp, vertical = 10.dp),
                     fontWeight = FontWeight.Medium
                 )
             }
@@ -604,13 +824,13 @@ private fun FileNotFoundErrorView(
                         onDismiss()
                         onRedownloadClick(record)
                     },
-                    shape = RoundedCornerShape(12.dp),
+                    shape = CircleShape,
                     color = MaterialTheme.colorScheme.primary
                 ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)
+                        modifier = Modifier.padding(horizontal = 18.dp, vertical = 10.dp)
                     ) {
                         Icon(
                             imageVector = CupertinoIcons.Filled.ArrowDownCircle,

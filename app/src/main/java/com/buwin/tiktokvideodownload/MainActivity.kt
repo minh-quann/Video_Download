@@ -20,6 +20,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.layout.padding
@@ -136,6 +137,7 @@ fun MainApp(
     val rootBackdrop = rememberLayerBackdrop()
     var selectedTab by remember { mutableIntStateOf(0) }
     var activePlayingRecord by remember { mutableStateOf<DownloadRecord?>(null) }
+    var activeThumbnailBounds by remember { mutableStateOf<Rect?>(null) }
     var activeEditingRecord by remember { mutableStateOf<DownloadRecord?>(null) }
     var pendingCancelDownloadId by remember { mutableStateOf<Long?>(null) }
 
@@ -184,11 +186,12 @@ fun MainApp(
             sharedUrl = sharedUrl,
             selectedTab = selectedTab,
             onTabSelected = { selectedTab = it },
-            onOpenPlayer = { record ->
+            onOpenPlayer = { record, bounds ->
                 val uri = downloadHelper.getDownloadedUri(record)
                 if (uri == null) {
                     missingFileRecord = record
                 } else {
+                    activeThumbnailBounds = bounds
                     activePlayingRecord = record
                 }
             },
@@ -250,7 +253,11 @@ fun MainApp(
             InAppVideoPlayerModal(
                 record = record,
                 downloadHelper = downloadHelper,
-                onDismiss = { activePlayingRecord = null },
+                thumbnailBounds = activeThumbnailBounds,
+                onDismiss = {
+                    activePlayingRecord = null
+                    activeThumbnailBounds = null
+                },
                 onRedownloadClick = { targetRecord ->
                     startReDownloadFlow(targetRecord)
                 }

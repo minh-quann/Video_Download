@@ -42,6 +42,7 @@ fun LiquidRoundButton(
     size: Dp = 56.dp,
     shape: Shape = CircleShape,
     isInteractive: Boolean = true,
+    showBorder: Boolean = false,
     tint: Color = Color.Unspecified,
     surfaceColor: Color = Color.White.copy(alpha = 0.25f),
     content: @Composable () -> Unit
@@ -62,7 +63,7 @@ fun LiquidRoundButton(
                     blur(3f.dp.toPx())
                     lens(12f.dp.toPx(), 24f.dp.toPx())
                 },
-                highlight = { Highlight.Plain },
+                highlight = if (showBorder) { { Highlight.Plain } } else null,
                 layerBlock = if (isInteractive) {
                     {
                         val progress = interactiveHighlight.pressProgress
