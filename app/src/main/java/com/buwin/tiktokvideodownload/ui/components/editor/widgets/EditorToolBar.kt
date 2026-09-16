@@ -49,10 +49,15 @@ import com.kyant.backdrop.highlight.Highlight
 import com.kyant.backdrop.shadow.InnerShadow
 import com.kyant.backdrop.shadow.Shadow
 import com.kyant.shapes.RoundedRectangle
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.verticalScroll
 import io.github.alexzhirkevich.cupertino.icons.CupertinoIcons
 import io.github.alexzhirkevich.cupertino.icons.filled.CircleLefthalfed
+import io.github.alexzhirkevich.cupertino.icons.outlined.CameraFilters
+import io.github.alexzhirkevich.cupertino.icons.outlined.Flame
 import io.github.alexzhirkevich.cupertino.icons.outlined.MusicNote
 import io.github.alexzhirkevich.cupertino.icons.outlined.Paintpalette
+import io.github.alexzhirkevich.cupertino.icons.outlined.SliderHorizontal3
 import io.github.alexzhirkevich.cupertino.icons.outlined.SunMax
 import androidx.compose.ui.graphics.vector.ImageVector
 
@@ -71,6 +76,9 @@ fun EditorToolBar(
     brightness: Float,
     contrast: Float,
     saturation: Float,
+    warmth: Float = 0f,
+    hue: Float = 0f,
+    blur: Float = 0f,
     activeCategory: EditorToolCategory?,
     backdrop: Backdrop,
     onToggleTrim: () -> Unit,
@@ -83,6 +91,10 @@ fun EditorToolBar(
     onBrightnessChange: (Float) -> Unit,
     onContrastChange: (Float) -> Unit,
     onSaturationChange: (Float) -> Unit,
+    onWarmthChange: (Float) -> Unit = {},
+    onHueChange: (Float) -> Unit = {},
+    onBlurChange: (Float) -> Unit = {},
+    onResetAdjust: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
@@ -132,10 +144,17 @@ fun EditorToolBar(
                             brightness = brightness,
                             contrast = contrast,
                             saturation = saturation,
+                            warmth = warmth,
+                            hue = hue,
+                            blur = blur,
                             backdrop = backdrop,
                             onBrightnessChange = onBrightnessChange,
                             onContrastChange = onContrastChange,
-                            onSaturationChange = onSaturationChange
+                            onSaturationChange = onSaturationChange,
+                            onWarmthChange = onWarmthChange,
+                            onHueChange = onHueChange,
+                            onBlurChange = onBlurChange,
+                            onResetAdjust = onResetAdjust
                         )
                     }
                 }
@@ -187,7 +206,8 @@ fun EditorToolBar(
                 label = "Điều chỉnh",
                 icon = Icons.Filled.Tune,
                 isActive = activeCategory == EditorToolCategory.ADJUST,
-                hasActiveOp = brightness != 0f || contrast != 0f || saturation != 0f,
+                hasActiveOp = brightness != 0f || contrast != 0f || saturation != 0f ||
+                        warmth != 0f || hue != 0f || blur != 0f,
                 backdrop = backdrop,
                 onClick = { onSelectCategory(if (activeCategory == EditorToolCategory.ADJUST) null else EditorToolCategory.ADJUST) }
             )
@@ -373,36 +393,106 @@ private fun AdjustPanel(
     brightness: Float,
     contrast: Float,
     saturation: Float,
+    warmth: Float,
+    hue: Float,
+    blur: Float,
     backdrop: Backdrop,
     onBrightnessChange: (Float) -> Unit,
     onContrastChange: (Float) -> Unit,
-    onSaturationChange: (Float) -> Unit
+    onSaturationChange: (Float) -> Unit,
+    onWarmthChange: (Float) -> Unit,
+    onHueChange: (Float) -> Unit,
+    onBlurChange: (Float) -> Unit,
+    onResetAdjust: () -> Unit
 ) {
+    val hasChanges = brightness != 0f || contrast != 0f || saturation != 0f ||
+            warmth != 0f || hue != 0f || blur != 0f
+
     Column(
-        modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(6.dp)
+        modifier = Modifier.fillMaxWidth()
     ) {
-        AdjustSlider(
-            label = "Độ sáng",
-            value = brightness,
-            onValueChange = onBrightnessChange,
-            icon = CupertinoIcons.Outlined.SunMax,
-            backdrop = backdrop
-        )
-        AdjustSlider(
-            label = "Tương phản",
-            value = contrast,
-            onValueChange = onContrastChange,
-            icon = CupertinoIcons.Filled.CircleLefthalfed,
-            backdrop = backdrop
-        )
-        AdjustSlider(
-            label = "Bão hòa",
-            value = saturation,
-            onValueChange = onSaturationChange,
-            icon = CupertinoIcons.Outlined.Paintpalette,
-            backdrop = backdrop
-        )
+        // Top row with label & Reset button
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 6.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "THÔNG SỐ MÀU SẮC",
+                color = Color(0xFF9CA3AF),
+                fontSize = 11.sp,
+                fontWeight = FontWeight.SemiBold,
+                letterSpacing = 0.8.sp
+            )
+            if (hasChanges) {
+                Text(
+                    text = "Đặt lại",
+                    color = Color(0xFF0088FF),
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(6.dp))
+                        .clickable { onResetAdjust() }
+                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                )
+            }
+        }
+
+        // Vertically scrollable adjustments list
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(max = 195.dp)
+                .verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            AdjustSlider(
+                label = "Độ sáng",
+                value = brightness,
+                onValueChange = onBrightnessChange,
+                icon = CupertinoIcons.Outlined.SunMax,
+                backdrop = backdrop
+            )
+            AdjustSlider(
+                label = "Tương phản",
+                value = contrast,
+                onValueChange = onContrastChange,
+                icon = CupertinoIcons.Filled.CircleLefthalfed,
+                backdrop = backdrop
+            )
+            AdjustSlider(
+                label = "Bão hòa",
+                value = saturation,
+                onValueChange = onSaturationChange,
+                icon = CupertinoIcons.Outlined.Paintpalette,
+                backdrop = backdrop
+            )
+            AdjustSlider(
+                label = "Độ ấm",
+                value = warmth,
+                onValueChange = onWarmthChange,
+                icon = CupertinoIcons.Outlined.Flame,
+                backdrop = backdrop
+            )
+            AdjustSlider(
+                label = "Tông màu",
+                value = hue / 180f,
+                onValueChange = { onHueChange(it * 180f) },
+                icon = CupertinoIcons.Outlined.SliderHorizontal3,
+                displayValue = "${hue.toInt()}°",
+                backdrop = backdrop
+            )
+            AdjustSlider(
+                label = "Làm mờ",
+                value = blur,
+                onValueChange = onBlurChange,
+                icon = CupertinoIcons.Outlined.CameraFilters,
+                valueRange = 0f..1f,
+                backdrop = backdrop
+            )
+        }
     }
 }
 
@@ -412,7 +502,9 @@ private fun AdjustSlider(
     value: Float,
     onValueChange: (Float) -> Unit,
     icon: ImageVector,
-    backdrop: Backdrop
+    backdrop: Backdrop,
+    valueRange: ClosedFloatingPointRange<Float> = -1f..1f,
+    displayValue: String? = null
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -436,17 +528,17 @@ private fun AdjustSlider(
         com.buwin.tiktokvideodownload.ui.components.liquid.LiquidSlider(
             value = { value },
             onValueChange = onValueChange,
-            valueRange = -1f..1f,
+            valueRange = valueRange,
             visibilityThreshold = 0.001f,
             backdrop = backdrop,
             modifier = Modifier.weight(1f)
         )
         Text(
-            text = "${(value * 100).toInt()}",
+            text = displayValue ?: "${(value * 100).toInt()}",
             color = if (value != 0f) Color.White else Color(0xFF666666),
             fontSize = 11.sp,
             fontWeight = FontWeight.Bold,
-            modifier = Modifier.width(30.dp),
+            modifier = Modifier.width(32.dp),
             textAlign = TextAlign.End
         )
     }

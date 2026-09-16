@@ -43,7 +43,8 @@ fun LiquidTopBar(
     headerHeight: Dp = 114.dp,
     navigationIcon: (@Composable () -> Unit)? = null,
     title: @Composable () -> Unit,
-    actions: (@Composable RowScope.() -> Unit)? = null
+    actions: (@Composable RowScope.() -> Unit)? = null,
+    bottomContent: (@Composable () -> Unit)? = null
 ) {
     val tintColor = if (isDark) Color(0xFF0C0C0E) else Color(0xFFFAFAF9)
 
@@ -134,6 +135,7 @@ half4 main(float2 coord) {
                     )
                 }
             }
+            bottomContent?.invoke()
         }
     }
 }
@@ -151,7 +153,8 @@ fun LiquidTopBar(
     headerHeight: Dp = 114.dp,
     navigationIcon: (@Composable () -> Unit)? = null,
     titleBadge: (@Composable () -> Unit)? = null,
-    actions: (@Composable RowScope.() -> Unit)? = null
+    actions: (@Composable RowScope.() -> Unit)? = null,
+    bottomContent: (@Composable () -> Unit)? = null
 ) {
     LiquidTopBar(
         backdrop = backdrop,
@@ -159,6 +162,7 @@ fun LiquidTopBar(
         isDark = isDark,
         headerHeight = headerHeight,
         navigationIcon = navigationIcon,
+        bottomContent = bottomContent,
         title = {
             Column {
                 Row(
@@ -177,9 +181,9 @@ fun LiquidTopBar(
                 if (!subtitle.isNullOrBlank()) {
                     Text(
                         text = subtitle,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        fontSize = 12.5.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = if (isDark) Color.White.copy(alpha = 0.85f) else Color(0xFF1C1C1E).copy(alpha = 0.75f)
                     )
                 }
             }

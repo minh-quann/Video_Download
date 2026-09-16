@@ -100,6 +100,9 @@ fun VideoEditorModal(
     var brightness by remember { mutableFloatStateOf(0f) }
     var contrast by remember { mutableFloatStateOf(0f) }
     var saturation by remember { mutableFloatStateOf(0f) }
+    var warmth by remember { mutableFloatStateOf(0f) }
+    var hue by remember { mutableFloatStateOf(0f) }
+    var blur by remember { mutableFloatStateOf(0f) }
 
     // ── Audio Replacement ──
     var selectedCustomAudioUri by remember { mutableStateOf<Uri?>(null) }
@@ -129,7 +132,11 @@ fun VideoEditorModal(
         brightness = brightness,
         contrast = contrast,
         saturation = saturation,
-        isColorAdjusted = brightness != 0f || contrast != 0f || saturation != 0f,
+        warmth = warmth,
+        hue = hue,
+        blur = blur,
+        isColorAdjusted = brightness != 0f || contrast != 0f || saturation != 0f ||
+                warmth != 0f || hue != 0f || blur != 0f,
         customAudioUri = selectedCustomAudioUri,
         customAudioTitle = selectedCustomAudioTitle,
         activeCategory = activeCategory
@@ -220,6 +227,9 @@ fun VideoEditorModal(
                 brightness = brightness,
                 contrast = contrast,
                 saturation = saturation,
+                warmth = warmth,
+                hue = hue,
+                blur = blur,
                 rotationDegrees = rotationDegrees,
                 playbackSpeed = speedMultiplier,
                 onPlayerReady = { pc -> playerController = pc },
@@ -321,6 +331,9 @@ fun VideoEditorModal(
             brightness = brightness,
             contrast = contrast,
             saturation = saturation,
+            warmth = warmth,
+            hue = hue,
+            blur = blur,
             activeCategory = activeCategory,
             backdrop = editorBackdrop,
             onToggleTrim = {
@@ -350,6 +363,17 @@ fun VideoEditorModal(
             onBrightnessChange = { brightness = it },
             onContrastChange = { contrast = it },
             onSaturationChange = { saturation = it },
+            onWarmthChange = { warmth = it },
+            onHueChange = { hue = it },
+            onBlurChange = { blur = it },
+            onResetAdjust = {
+                brightness = 0f
+                contrast = 0f
+                saturation = 0f
+                warmth = 0f
+                hue = 0f
+                blur = 0f
+            },
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .navigationBarsPadding()

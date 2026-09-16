@@ -56,6 +56,9 @@ data class EditorPipelineState(
     val brightness: Float = 0f,    // -1.0 to 1.0
     val contrast: Float = 0f,      // -1.0 to 1.0
     val saturation: Float = 0f,    // -1.0 to 1.0
+    val warmth: Float = 0f,        // -1.0 to 1.0 (Cold to Warm)
+    val hue: Float = 0f,           // -180.0 to 180.0 degrees
+    val blur: Float = 0f,          // 0.0 to 1.0
     val isColorAdjusted: Boolean = false,
 
     // Audio replacement

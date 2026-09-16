@@ -56,6 +56,7 @@ dependencies {
 
     // Image loading & Networking
     implementation(libs.coil.compose)
+    implementation(libs.coil.video)
     implementation(libs.okhttp)
 
     // Media3 Transformer for advanced editing (speed, reverse, filters)

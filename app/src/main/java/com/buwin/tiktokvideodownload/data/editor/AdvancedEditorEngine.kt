@@ -6,8 +6,10 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.audio.SpeedChangingAudioProcessor
 import androidx.media3.effect.Brightness
 import androidx.media3.effect.Contrast
+import androidx.media3.effect.GaussianBlur
 import androidx.media3.effect.HslAdjustment
 import androidx.media3.effect.Presentation
+import androidx.media3.effect.RgbAdjustment
 import androidx.media3.effect.ScaleAndRotateTransformation
 import androidx.media3.transformer.Composition
 import androidx.media3.transformer.EditedMediaItem
@@ -96,7 +98,7 @@ object AdvancedEditorEngine {
     }
 
     /**
-     * Apply color adjustments (brightness, contrast, saturation) to video.
+     * Apply color adjustments (brightness, contrast, saturation, warmth, hue, blur) to video.
      */
     @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
     suspend fun adjustColors(
@@ -106,6 +108,9 @@ object AdvancedEditorEngine {
         brightness: Float,
         contrast: Float,
         saturation: Float,
+        warmth: Float = 0f,
+        hue: Float = 0f,
+        blur: Float = 0f,
         onProgress: (Float) -> Unit = {}
     ): Result<File> = withContext(Dispatchers.Main) {
         try {
@@ -120,12 +125,23 @@ object AdvancedEditorEngine {
             if (contrast != 0f) {
                 videoEffects.add(Contrast(contrast))
             }
-            if (saturation != 0f) {
-                videoEffects.add(
-                    HslAdjustment.Builder()
-                        .adjustSaturation(saturation * 100f)
-                        .build()
-                )
+            if (saturation != 0f || hue != 0f) {
+                val hslBuilder = HslAdjustment.Builder()
+                if (saturation != 0f) hslBuilder.adjustSaturation(saturation * 100f)
+                if (hue != 0f) hslBuilder.adjustHue(hue)
+                videoEffects.add(hslBuilder.build())
+            }
+            if (warmth != 0f) {
+                val rScale = 1f + warmth * 0.25f
+                val bScale = 1f - warmth * 0.25f
+                val rgbAdjustment = RgbAdjustment.Builder()
+                    .setRedScale(rScale)
+                    .setBlueScale(bScale)
+                    .build()
+                videoEffects.add(rgbAdjustment)
+            }
+            if (blur > 0f) {
+                videoEffects.add(GaussianBlur(blur * 12f))
             }
 
             val effects = Effects(

@@ -137,7 +137,8 @@ object EditorPipelineExecutor {
                         withContext(Dispatchers.Main) {
                             AdvancedEditorEngine.adjustColors(
                                 context, currentInputUri, outputFile,
-                                state.brightness, state.contrast, state.saturation
+                                state.brightness, state.contrast, state.saturation,
+                                state.warmth, state.hue, state.blur
                             ) { p -> onProgress(stepProgressBase + p * progressPerStep) }
                         }
                     }

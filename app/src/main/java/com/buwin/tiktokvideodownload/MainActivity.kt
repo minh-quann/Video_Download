@@ -36,14 +36,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextAlign
 import io.github.alexzhirkevich.cupertino.icons.CupertinoIcons
 import io.github.alexzhirkevich.cupertino.icons.filled.ArrowDownCircle
-import io.github.alexzhirkevich.cupertino.icons.filled.Gearshape
-import io.github.alexzhirkevich.cupertino.icons.filled.House
-import io.github.alexzhirkevich.cupertino.icons.outlined.ClockArrowCirclepath
-import com.buwin.tiktokvideodownload.ui.components.liquid.LiquidBottomTab
-import com.buwin.tiktokvideodownload.ui.components.liquid.LiquidBottomTabs
-import com.buwin.tiktokvideodownload.ui.screens.HistoryScreen
-import com.buwin.tiktokvideodownload.ui.screens.HomeScreen
-import com.buwin.tiktokvideodownload.ui.screens.SettingsScreen
+import com.buwin.tiktokvideodownload.ui.navigation.MainTabContainer
 import com.buwin.tiktokvideodownload.data.model.TikTokVideoInfo
 import com.buwin.tiktokvideodownload.data.service.FacebookService
 import com.buwin.tiktokvideodownload.ui.components.download.ReDownloadFormatModal
@@ -57,6 +50,10 @@ import com.buwin.tiktokvideodownload.ui.theme.ThemePreferences
 import com.buwin.tiktokvideodownload.ui.theme.TiktokVideoDownloadTheme
 import android.os.Build
 import com.buwin.tiktokvideodownload.data.model.DownloadRecord
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import com.buwin.tiktokvideodownload.ui.components.editor.VideoEditorModal
 import com.buwin.tiktokvideodownload.ui.components.player.InAppVideoPlayerModal
 import com.buwin.tiktokvideodownload.ui.components.dialog.AppConfirmationModal
 import com.buwin.tiktokvideodownload.ui.components.toast.AppToast
@@ -76,6 +73,16 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         handleIncomingIntent(intent)
+
+        // Configure global Coil ImageLoader with VideoFrameDecoder for video thumbnails
+        val imageLoader = coil.ImageLoader.Builder(this)
+            .components {
+                add(coil.decode.VideoFrameDecoder.Factory())
+            }
+            .crossfade(true)
+            .build()
+        coil.Coil.setImageLoader(imageLoader)
+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             if (checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
                 requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), 101)
@@ -126,10 +133,10 @@ fun MainApp(
     isDark: Boolean,
     sharedUrl: String?
 ) {
-    val screenBackdrop = rememberLayerBackdrop()
-    val localBackdrop = rememberLayerBackdrop()
+    val rootBackdrop = rememberLayerBackdrop()
     var selectedTab by remember { mutableIntStateOf(0) }
     var activePlayingRecord by remember { mutableStateOf<DownloadRecord?>(null) }
+    var activeEditingRecord by remember { mutableStateOf<DownloadRecord?>(null) }
     var pendingCancelDownloadId by remember { mutableStateOf<Long?>(null) }
 
     val coroutineScope = rememberCoroutineScope()
@@ -166,144 +173,40 @@ fun MainApp(
         }
     }
 
-    // Remember HomeViewModel to preserve state across tab switches
-    val homeViewModel = remember {
-        com.buwin.tiktokvideodownload.ui.screens.home.viewmodel.HomeViewModel(
+    Box(modifier = Modifier.fillMaxSize()) {
+        // Tier 1: Main Tab Navigator (Home, Gallery, History, Settings + Persistent Bottom Bar)
+        MainTabContainer(
             tiktokService = tiktokService,
             downloadHelper = downloadHelper,
-            themePreferences = themePreferences
-        )
-    }
-
-    val backgroundColor = if (isDark) BackgroundDark else BackgroundLight
-
-    Box(modifier = Modifier.fillMaxSize()) {
-        // Screen content with background captured into screenBackdrop for true Liquid Glass transparency
-        Box(
-            modifier = Modifier
-                .layerBackdrop(screenBackdrop)
-                .fillMaxSize()
-                .background(backgroundColor)
-        ) {
-            when (selectedTab) {
-                0 -> HomeScreen(
-                    tiktokService = tiktokService,
-                    downloadHelper = downloadHelper,
-                    themePreferences = themePreferences,
-                    sharedUrl = sharedUrl,
-                    backdrop = localBackdrop,
-                    viewModel = homeViewModel
-                )
-                1 -> HistoryScreen(
-                    backdrop = localBackdrop,
-                    downloadHelper = downloadHelper,
-                    authManager = authManager,
-                    onPlayRecord = { record ->
-                        val uri = downloadHelper.getDownloadedUri(record)
-                        if (uri == null) {
-                            missingFileRecord = record
-                        } else {
-                            activePlayingRecord = record
-                        }
-                    }
-                )
-                2 -> SettingsScreen(
-                    backdrop = localBackdrop,
-                    themePreferences = themePreferences,
-                    downloadHelper = downloadHelper,
-                    authManager = authManager
-                )
-            }
-        }
-
-        // Progressive Blur Footer (Apple-style gradient blur dissolving scrolling content towards bottom edge)
-        com.buwin.tiktokvideodownload.ui.components.liquid.LiquidBottomProgressiveBlur(
-            backdrop = screenBackdrop,
+            themePreferences = themePreferences,
+            authManager = authManager,
             isDark = isDark,
-            modifier = Modifier.align(Alignment.BottomCenter)
-        )
-
-        val contentColor = if (isDark) Color.White else Color.Black
-
-        // Authentic Liquid Glass Bottom Tabs directly from Kyant0/AndroidLiquidGlass
-        LiquidBottomTabs(
-            selectedTabIndex = { selectedTab },
+            sharedUrl = sharedUrl,
+            selectedTab = selectedTab,
             onTabSelected = { selectedTab = it },
-            backdrop = screenBackdrop,
-            tabsCount = 3,
-            isDark = isDark,
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .padding(horizontal = 24.dp, vertical = 16.dp)
-                .navigationBarsPadding()
-        ) {
-            // Tab 1: Home with iOS SF Symbol House
-            LiquidBottomTab({ selectedTab = 0 }) {
-                Icon(
-                    imageVector = CupertinoIcons.Filled.House,
-                    contentDescription = "Tải video",
-                    tint = contentColor,
-                    modifier = Modifier.size(24.dp)
-                )
-                BasicText(
-                    text = "Tải video",
-                    style = TextStyle(
-                        color = contentColor,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Medium,
-                        textAlign = TextAlign.Center,
-                        platformStyle = PlatformTextStyle(includeFontPadding = false)
-                    )
-                )
-            }
-
-            // Tab 2: History with iOS SF Symbol Clock/History
-            LiquidBottomTab({ selectedTab = 1 }) {
-                Icon(
-                    imageVector = CupertinoIcons.Default.ClockArrowCirclepath,
-                    contentDescription = "Lịch sử",
-                    tint = contentColor,
-                    modifier = Modifier.size(24.dp)
-                )
-                BasicText(
-                    text = "Lịch sử",
-                    style = TextStyle(
-                        color = contentColor,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Medium,
-                        textAlign = TextAlign.Center,
-                        platformStyle = PlatformTextStyle(includeFontPadding = false)
-                    )
-                )
-            }
-
-            // Tab 3: Settings with iOS SF Symbol Gear
-            LiquidBottomTab({ selectedTab = 2 }) {
-                Icon(
-                    imageVector = CupertinoIcons.Filled.Gearshape,
-                    contentDescription = "Cài đặt",
-                    tint = contentColor,
-                    modifier = Modifier.size(24.dp)
-                )
-                BasicText(
-                    text = "Cài đặt",
-                    style = TextStyle(
-                        color = contentColor,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Medium,
-                        textAlign = TextAlign.Center,
-                        platformStyle = PlatformTextStyle(includeFontPadding = false)
-                    )
-                )
-            }
-        }
+            onOpenPlayer = { record ->
+                val uri = downloadHelper.getDownloadedUri(record)
+                if (uri == null) {
+                    missingFileRecord = record
+                } else {
+                    activePlayingRecord = record
+                }
+            },
+            onOpenEditor = { record ->
+                activeEditingRecord = record
+            },
+            onMissingFile = { record ->
+                missingFileRecord = record
+            },
+            modifier = Modifier.layerBackdrop(rootBackdrop)
+        )
 
         // Authentic iOS Waterdrop Dynamic Island Toast floating over entire app
         WaterdropToast(
             isDark = isDark,
             modifier = Modifier.align(Alignment.TopCenter),
             onClick = { state ->
-                selectedTab = 1
+                selectedTab = 2
                 val records = downloadHelper.getHistory()
                 val targetRecord = if (state.downloadId > 0) {
                     records.firstOrNull { it.downloadId == state.downloadId } ?: records.firstOrNull()
@@ -332,7 +235,7 @@ fun MainApp(
             confirmText = "Hủy tải",
             cancelText = "Tiếp tục tải",
             isDestructive = true,
-            backdrop = screenBackdrop,
+            backdrop = rootBackdrop,
             isDark = isDark,
             onConfirm = {
                 pendingCancelDownloadId?.let { id ->
@@ -354,6 +257,22 @@ fun MainApp(
             )
         }
 
+        // Real-Time Video & Photo Editor Modal
+        activeEditingRecord?.let { record ->
+            VideoEditorModal(
+                record = record,
+                downloadHelper = downloadHelper,
+                onDismiss = { activeEditingRecord = null },
+                onExportSuccess = {
+                    activeEditingRecord = null
+                    AppToast.showSuccess(
+                        "Xuất tệp thành công",
+                        "Tệp mới đã được lưu vào bộ sưu tập"
+                    )
+                }
+            )
+        }
+
         // Modal Confirmation for Re-downloading Missing File
         AppConfirmationModal(
             visible = missingFileRecord != null,
@@ -364,7 +283,7 @@ fun MainApp(
             cancelText = "Đóng",
             icon = CupertinoIcons.Filled.ArrowDownCircle,
             iconTint = MaterialTheme.colorScheme.primary,
-            backdrop = screenBackdrop,
+            backdrop = rootBackdrop,
             isDark = isDark,
             onConfirm = {
                 val target = missingFileRecord
@@ -379,7 +298,7 @@ fun MainApp(
         reDownloadInfo?.let { info ->
             ReDownloadFormatModal(
                 info = info,
-                backdrop = screenBackdrop,
+                backdrop = rootBackdrop,
                 isDark = isDark,
                 onDismiss = { reDownloadInfo = null },
                 onDownloadOption = { option ->

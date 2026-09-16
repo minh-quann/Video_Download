@@ -4,6 +4,7 @@ import android.graphics.ColorMatrix
 import android.graphics.ColorMatrixColorFilter
 import android.graphics.Matrix
 import android.graphics.RenderEffect
+import android.graphics.Shader
 import android.graphics.SurfaceTexture
 import android.media.MediaPlayer
 import android.net.Uri
@@ -49,12 +50,14 @@ interface EditorPlayerController {
 }
 
 /**
- * Creates a combined ColorMatrix for brightness, contrast, and saturation adjustments.
+ * Creates a combined ColorMatrix for brightness, contrast, saturation, warmth, and hue adjustments.
  */
 internal fun createAdjustColorMatrix(
     brightness: Float,
     contrast: Float,
-    saturation: Float
+    saturation: Float,
+    warmth: Float = 0f,
+    hue: Float = 0f
 ): ColorMatrix {
     val result = ColorMatrix()
 
@@ -66,7 +69,53 @@ internal fun createAdjustColorMatrix(
         result.postConcat(satMatrix)
     }
 
-    // 2. Contrast adjustment: matches Media3 Contrast effect formula
+    // 2. Warmth / Temperature (-1f = cold/blue, +1f = warm/yellow)
+    if (warmth != 0f) {
+        val rScale = 1f + warmth * 0.25f
+        val bScale = 1f - warmth * 0.25f
+        val warmthMatrix = ColorMatrix(
+            floatArrayOf(
+                rScale, 0f, 0f, 0f, 0f,
+                0f, 1f, 0f, 0f, 0f,
+                0f, 0f, bScale, 0f, 0f,
+                0f, 0f, 0f, 1f, 0f
+            )
+        )
+        result.postConcat(warmthMatrix)
+    }
+
+    // 3. Hue rotation (-180f to 180f degrees)
+    if (hue != 0f) {
+        val radians = Math.toRadians(hue.toDouble())
+        val cosVal = Math.cos(radians).toFloat()
+        val sinVal = Math.sin(radians).toFloat()
+        val lumR = 0.213f
+        val lumG = 0.715f
+        val lumB = 0.072f
+        val hueMatrix = ColorMatrix(
+            floatArrayOf(
+                lumR + cosVal * (1 - lumR) + sinVal * (-lumR),
+                lumG + cosVal * (-lumG) + sinVal * (-lumG),
+                lumB + cosVal * (-lumB) + sinVal * (1 - lumB),
+                0f, 0f,
+
+                lumR + cosVal * (-lumR) + sinVal * 0.143f,
+                lumG + cosVal * (1 - lumG) + sinVal * 0.140f,
+                lumB + cosVal * (-lumB) + sinVal * (-0.283f),
+                0f, 0f,
+
+                lumR + cosVal * (-lumR) + sinVal * (-(1 - lumB)),
+                lumG + cosVal * (-lumG) + sinVal * lumG,
+                lumB + cosVal * (1 - lumB) + sinVal * lumB,
+                0f, 0f,
+
+                0f, 0f, 0f, 1f, 0f
+            )
+        )
+        result.postConcat(hueMatrix)
+    }
+
+    // 4. Contrast adjustment: matches Media3 Contrast effect formula
     if (contrast != 0f) {
         val f2 = (1.0f + contrast) / (1.0001f - contrast)
         val translate = (1.0f - f2) * 0.5f * 255f
@@ -81,7 +130,7 @@ internal fun createAdjustColorMatrix(
         result.postConcat(contrastMatrix)
     }
 
-    // 3. Brightness adjustment: brightness in [-1f, 1f] -> offset in [-255f, 255f]
+    // 5. Brightness adjustment: brightness in [-1f, 1f] -> offset in [-255f, 255f]
     if (brightness != 0f) {
         val offset = brightness * 255f
         val brightnessMatrix = ColorMatrix(
@@ -122,7 +171,7 @@ private fun updateTextureAspect(
 
 /**
  * Hardware-accelerated video preview canvas backed by TextureView.
- * Supports real-time color filter adjustments (brightness, contrast, saturation)
+ * Supports real-time color filter adjustments (brightness, contrast, saturation, warmth, hue, blur)
  * and transformations (rotation, scaling).
  */
 @Composable
@@ -132,6 +181,9 @@ fun EditorVideoPreview(
     brightness: Float = 0f,
     contrast: Float = 0f,
     saturation: Float = 0f,
+    warmth: Float = 0f,
+    hue: Float = 0f,
+    blur: Float = 0f,
     rotationDegrees: Float = 0f,
     playbackSpeed: Float = 1.0f,
     onPlayerReady: (EditorPlayerController) -> Unit,
@@ -303,13 +355,26 @@ fun EditorVideoPreview(
                 update = { tv ->
                     updateTextureAspect(tv, videoDimensions.first, videoDimensions.second)
 
-                    // Real-time hardware-accelerated RenderEffect
-                    val isAdjusted = brightness != 0f || contrast != 0f || saturation != 0f
-                    val renderEffect = if (isAdjusted) {
-                        val cm = createAdjustColorMatrix(brightness, contrast, saturation)
+                    // Real-time hardware-accelerated RenderEffect (ColorFilter + Blur chain)
+                    val hasColorAdjust = brightness != 0f || contrast != 0f || saturation != 0f || warmth != 0f || hue != 0f
+                    val colorFilterEffect = if (hasColorAdjust) {
+                        val cm = createAdjustColorMatrix(brightness, contrast, saturation, warmth, hue)
                         RenderEffect.createColorFilterEffect(ColorMatrixColorFilter(cm))
                     } else null
-                    tv.setRenderEffect(renderEffect)
+
+                    val blurEffect = if (blur > 0f) {
+                        val radius = blur * 25f
+                        RenderEffect.createBlurEffect(radius, radius, Shader.TileMode.CLAMP)
+                    } else null
+
+                    val finalEffect = when {
+                        colorFilterEffect != null && blurEffect != null ->
+                            RenderEffect.createChainEffect(blurEffect, colorFilterEffect)
+                        colorFilterEffect != null -> colorFilterEffect
+                        blurEffect != null -> blurEffect
+                        else -> null
+                    }
+                    tv.setRenderEffect(finalEffect)
                 },
                 modifier = Modifier
                     .fillMaxSize()

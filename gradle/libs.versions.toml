@@ -29,6 +29,7 @@ androidx-compose-material-icons-extended = { group = "androidx.compose.material"
 kyant-backdrop = { group = "io.github.kyant0", name = "backdrop", version = "2.0.1" }
 kyant-shapes = { group = "io.github.kyant0", name = "shapes", version = "1.2.1" }
 coil-compose = { group = "io.coil-kt", name = "coil-compose", version = "2.7.0" }
+coil-video = { group = "io.coil-kt", name = "coil-video", version = "2.7.0" }
 okhttp = { group = "com.squareup.okhttp3", name = "okhttp", version = "4.12.0" }
 cupertino = { group = "io.github.alexzhirkevich", name = "cupertino", version = "0.1.0-alpha04" }
 cupertino-core = { group = "io.github.alexzhirkevich", name = "cupertino-core", version = "0.1.0-alpha04" }
