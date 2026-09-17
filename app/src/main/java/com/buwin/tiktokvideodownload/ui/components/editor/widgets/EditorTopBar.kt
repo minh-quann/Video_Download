@@ -27,7 +27,7 @@ import io.github.alexzhirkevich.cupertino.icons.outlined.Xmark
  */
 @Composable
 fun EditorTopBar(
-    exportLabel: String = "Lưu & Xuất",
+    exportLabel: String = "Xong",
     isExporting: Boolean = false,
     backdrop: Backdrop,
     onClose: () -> Unit,
@@ -41,7 +41,7 @@ fun EditorTopBar(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        // Close button - Liquid Glass round button (no deformation)
+        // Close button - Liquid Glass round button (Apple style)
         LiquidRoundButton(
             onClick = onClose,
             backdrop = backdrop,
@@ -51,7 +51,7 @@ fun EditorTopBar(
         ) {
             Icon(
                 imageVector = CupertinoIcons.Outlined.Xmark,
-                contentDescription = "Cancel",
+                contentDescription = "Hủy",
                 tint = Color.White,
                 modifier = Modifier.size(18.dp)
             )
@@ -64,16 +64,16 @@ fun EditorTopBar(
             fontWeight = FontWeight.Bold
         )
 
-        // Export button - Liquid Glass pill button with accent tint (no deformation)
+        // Export button - Apple Photos style Done / Action button
         LiquidButton(
             onClick = { if (!isExporting) onExport() },
             backdrop = backdrop,
             isInteractive = false,
             tint = Color(0xFF007AFF),
-            surfaceColor = Color(0xFF007AFF).copy(alpha = 0.3f)
+            surfaceColor = Color(0xFF007AFF).copy(alpha = 0.35f)
         ) {
             Text(
-                text = exportLabel,
+                text = if (exportLabel == "Chọn thao tác") "Xong" else exportLabel,
                 color = Color.White,
                 fontSize = 13.sp,
                 fontWeight = FontWeight.Bold

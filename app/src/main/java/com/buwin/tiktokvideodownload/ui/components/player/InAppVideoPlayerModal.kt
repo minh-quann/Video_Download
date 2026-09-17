@@ -69,6 +69,7 @@ import coil.compose.SubcomposeAsyncImage
 import coil.request.ImageRequest
 import com.buwin.tiktokvideodownload.data.download.DownloadManagerHelper
 import com.buwin.tiktokvideodownload.data.model.DownloadRecord
+import com.buwin.tiktokvideodownload.ui.components.editor.ImageEditorModal
 import com.buwin.tiktokvideodownload.ui.components.editor.VideoEditorModal
 import com.buwin.tiktokvideodownload.ui.components.dialog.AppConfirmationModal
 import com.buwin.tiktokvideodownload.ui.components.toast.AppToast
@@ -128,7 +129,8 @@ fun InAppVideoPlayerModal(
     var totalDurationMs by remember { mutableIntStateOf(0) }
     var showControls by remember { mutableStateOf(true) }
     var isMuted by remember { mutableStateOf(false) }
-    var showEditorModal by remember { mutableStateOf(false) }
+    var showVideoEditorModal by remember { mutableStateOf(false) }
+    var showImageEditorModal by remember { mutableStateOf(false) }
     var showDetailsModal by remember { mutableStateOf(false) }
     var showDeleteConfirmDialog by remember { mutableStateOf(false) }
 
@@ -296,20 +298,11 @@ fun InAppVideoPlayerModal(
 
     val handleEdit: () -> Unit = {
         if (isImage) {
-            val editIntent = Intent(Intent.ACTION_EDIT).apply {
-                setDataAndType(videoUri, "image/*")
-                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
-            }
-            try {
-                context.startActivity(Intent.createChooser(editIntent, "Chỉnh sửa ảnh"))
-            } catch (_: Exception) {
-                showEditorModal = true
-            }
+            showImageEditorModal = true
         } else {
             videoViewRef?.pause()
             isPlaying = false
-            showEditorModal = true
+            showVideoEditorModal = true
         }
     }
 
@@ -645,7 +638,7 @@ fun InAppVideoPlayerModal(
                         {
                             videoViewRef?.pause()
                             isPlaying = false
-                            showEditorModal = true
+                            showVideoEditorModal = true
                         }
                     } else null
                 )
@@ -712,17 +705,31 @@ fun InAppVideoPlayerModal(
             }
 
             // Video Editor Modal
-            if (showEditorModal) {
+            if (showVideoEditorModal) {
                 VideoEditorModal(
                     record = record,
                     downloadHelper = downloadHelper,
                     onDismiss = {
-                        showEditorModal = false
+                        showVideoEditorModal = false
                         videoViewRef?.start()
                         isPlaying = true
                     },
                     onExportSuccess = {
-                        showEditorModal = false
+                        showVideoEditorModal = false
+                    }
+                )
+            }
+
+            // Image Editor Modal
+            if (showImageEditorModal) {
+                ImageEditorModal(
+                    record = record,
+                    downloadHelper = downloadHelper,
+                    onDismiss = {
+                        showImageEditorModal = false
+                    },
+                    onExportSuccess = {
+                        showImageEditorModal = false
                     }
                 )
             }

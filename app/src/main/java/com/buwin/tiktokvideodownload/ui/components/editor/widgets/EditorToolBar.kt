@@ -23,11 +23,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ContentCut
-import androidx.compose.material.icons.filled.RotateRight
-import androidx.compose.material.icons.filled.Speed
-import androidx.compose.material.icons.filled.Tune
+import io.github.alexzhirkevich.cupertino.icons.outlined.Scissors
+import io.github.alexzhirkevich.cupertino.icons.outlined.Speedometer
+import io.github.alexzhirkevich.cupertino.icons.outlined.RotateRight
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -162,7 +160,7 @@ fun EditorToolBar(
             }
         }
 
-        // ── Horizontal Scrollable Liquid Glass Chips ──
+        // ── Horizontal Scrollable Liquid Glass Chips (Apple SF Symbols) ──
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -172,7 +170,7 @@ fun EditorToolBar(
         ) {
             LiquidEditorChip(
                 label = "Cắt",
-                icon = Icons.Filled.ContentCut,
+                icon = CupertinoIcons.Outlined.Scissors,
                 isActive = activeCategory == EditorToolCategory.TRIM,
                 hasActiveOp = isTrimEnabled || isExtractAudioOnly,
                 backdrop = backdrop,
@@ -188,7 +186,7 @@ fun EditorToolBar(
             )
             LiquidEditorChip(
                 label = "Tốc độ",
-                icon = Icons.Filled.Speed,
+                icon = CupertinoIcons.Outlined.Speedometer,
                 isActive = activeCategory == EditorToolCategory.SPEED,
                 hasActiveOp = speedMultiplier != 1.0f,
                 backdrop = backdrop,
@@ -196,7 +194,7 @@ fun EditorToolBar(
             )
             LiquidEditorChip(
                 label = "Xoay",
-                icon = Icons.Filled.RotateRight,
+                icon = CupertinoIcons.Outlined.RotateRight,
                 isActive = activeCategory == EditorToolCategory.ROTATE,
                 hasActiveOp = rotationDegrees != 0f,
                 backdrop = backdrop,
@@ -204,7 +202,7 @@ fun EditorToolBar(
             )
             LiquidEditorChip(
                 label = "Điều chỉnh",
-                icon = Icons.Filled.Tune,
+                icon = CupertinoIcons.Outlined.SliderHorizontal3,
                 isActive = activeCategory == EditorToolCategory.ADJUST,
                 hasActiveOp = brightness != 0f || contrast != 0f || saturation != 0f ||
                         warmth != 0f || hue != 0f || blur != 0f,
@@ -358,10 +356,10 @@ private fun RotatePanel(currentDegrees: Float, onRotate: () -> Unit) {
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Icon(
-                    imageVector = Icons.Filled.RotateRight,
+                    imageVector = CupertinoIcons.Outlined.RotateRight,
                     contentDescription = null,
                     tint = accentColor,
-                    modifier = Modifier.height(22.dp)
+                    modifier = Modifier.size(22.dp)
                 )
                 Text(
                     text = "Xoay 90°",
@@ -497,7 +495,7 @@ private fun AdjustPanel(
 }
 
 @Composable
-private fun AdjustSlider(
+fun AdjustSlider(
     label: String,
     value: Float,
     onValueChange: (Float) -> Unit,
