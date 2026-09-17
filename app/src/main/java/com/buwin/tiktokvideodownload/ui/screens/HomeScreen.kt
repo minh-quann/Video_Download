@@ -67,10 +67,12 @@ fun HomeScreen(
     val contentBackdrop = rememberLayerBackdrop()
     val uiState by viewModel.uiState.collectAsState()
 
-    // Inspect clipboard for supported media link on initial launch
-    LaunchedEffect(Unit) {
-        val clipText = clipboardManager.getText()?.text
-        viewModel.checkClipboard(clipText)
+    // Inspect clipboard for supported media link on launch only if auto-paste is enabled
+    LaunchedEffect(themePreferences.isAutoPasteEnabled) {
+        if (themePreferences.isAutoPasteEnabled) {
+            val clipText = clipboardManager.getText()?.text
+            viewModel.checkClipboard(clipText)
+        }
     }
 
     // React to incoming shared URL from external apps

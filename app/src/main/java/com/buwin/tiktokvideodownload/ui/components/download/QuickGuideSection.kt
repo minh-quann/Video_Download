@@ -2,6 +2,7 @@ package com.buwin.tiktokvideodownload.ui.components.download
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -33,11 +34,11 @@ import androidx.compose.ui.unit.sp
 import com.buwin.tiktokvideodownload.ui.theme.LocalIsDark
 import io.github.alexzhirkevich.cupertino.icons.CupertinoIcons
 import io.github.alexzhirkevich.cupertino.icons.filled.Bolt
-import io.github.alexzhirkevich.cupertino.icons.filled.CheckmarkCircle
 import io.github.alexzhirkevich.cupertino.icons.filled.DocOnDoc
-import io.github.alexzhirkevich.cupertino.icons.filled.Film
-import io.github.alexzhirkevich.cupertino.icons.outlined.MusicNote
 import io.github.alexzhirkevich.cupertino.icons.outlined.Sparkles
+import io.github.alexzhirkevich.cupertino.icons.outlined.WandAndStars
+import io.github.alexzhirkevich.cupertino.icons.outlined.Waveform
+import io.github.alexzhirkevich.cupertino.icons.outlined._4kTv
 
 /**
  * Modern welcome hub showing features, quick instructions, and clipboard detection when no video is loaded.
@@ -146,9 +147,8 @@ fun QuickGuideSection(
                 FeatureTile(
                     title = "1080p Siêu nét",
                     description = "Chất lượng gốc cao nhất",
-                    icon = CupertinoIcons.Filled.Film,
-                    tint = Color(0xFF10B981),
-                    bgTint = if (isDark) Color(0xFF064E3B).copy(0.35f) else Color(0xFFD1FAE5),
+                    icon = CupertinoIcons.Outlined._4kTv,
+                    accentGlow = Color(0xFF00D2FF),
                     cardBackground = cardBackground,
                     cardBorderColor = cardBorderColor,
                     modifier = Modifier.weight(1f)
@@ -157,9 +157,8 @@ fun QuickGuideSection(
                 FeatureTile(
                     title = "Xóa Logo 100%",
                     description = "Không dính ID tác giả",
-                    icon = CupertinoIcons.Filled.CheckmarkCircle,
-                    tint = Color(0xFF007AFF),
-                    bgTint = if (isDark) Color(0xFF1E3A8A).copy(0.35f) else Color(0xFFEFF6FF),
+                    icon = CupertinoIcons.Outlined.WandAndStars,
+                    accentGlow = Color(0xFFBF5AF2),
                     cardBackground = cardBackground,
                     cardBorderColor = cardBorderColor,
                     modifier = Modifier.weight(1f)
@@ -173,9 +172,8 @@ fun QuickGuideSection(
                 FeatureTile(
                     title = "Tách Nhạc MP3",
                     description = "Trích xuất âm thanh 320k",
-                    icon = CupertinoIcons.Outlined.MusicNote,
-                    tint = Color(0xFFF59E0B),
-                    bgTint = if (isDark) Color(0xFF78350F).copy(0.35f) else Color(0xFFFEF3C7),
+                    icon = CupertinoIcons.Outlined.Waveform,
+                    accentGlow = Color(0xFFFF375F),
                     cardBackground = cardBackground,
                     cardBorderColor = cardBorderColor,
                     modifier = Modifier.weight(1f)
@@ -185,8 +183,7 @@ fun QuickGuideSection(
                     title = "Tốc độ Siêu tốc",
                     description = "Bóc tách tức thì trong 1s",
                     icon = CupertinoIcons.Filled.Bolt,
-                    tint = Color(0xFF8B5CF6),
-                    bgTint = if (isDark) Color(0xFF4C1D95).copy(0.35f) else Color(0xFFF5F3FF),
+                    accentGlow = Color(0xFFFFD60A),
                     cardBackground = cardBackground,
                     cardBorderColor = cardBorderColor,
                     modifier = Modifier.weight(1f)
@@ -214,15 +211,33 @@ fun QuickGuideSection(
                 ) {
                     Box(
                         modifier = Modifier
-                            .size(32.dp)
-                            .clip(RoundedCornerShape(10.dp))
-                            .background(Color(0xFF007AFF).copy(alpha = if (isDark) 0.22f else 0.12f)),
+                            .size(34.dp)
+                            .clip(RoundedCornerShape(11.dp))
+                            .background(
+                                Brush.radialGradient(
+                                    colors = listOf(
+                                        Color(0xFF0A84FF).copy(alpha = if (isDark) 0.25f else 0.15f),
+                                        if (isDark) Color.White.copy(alpha = 0.04f) else Color.Black.copy(alpha = 0.02f)
+                                    )
+                                )
+                            )
+                            .border(
+                                width = 0.75.dp,
+                                brush = Brush.linearGradient(
+                                    colors = listOf(
+                                        if (isDark) Color.White.copy(alpha = 0.40f) else Color.White.copy(alpha = 0.9f),
+                                        Color(0xFF0A84FF).copy(alpha = 0.45f),
+                                        if (isDark) Color.White.copy(alpha = 0.08f) else Color.Black.copy(alpha = 0.05f)
+                                    )
+                                ),
+                                shape = RoundedCornerShape(11.dp)
+                            ),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             imageVector = CupertinoIcons.Outlined.Sparkles,
                             contentDescription = null,
-                            tint = Color(0xFF007AFF),
+                            tint = Color(0xFF0A84FF),
                             modifier = Modifier.size(18.dp)
                         )
                     }
@@ -247,7 +262,7 @@ fun QuickGuideSection(
                     GuideStepRow(
                         number = "2",
                         title = "Dán vào ô tìm kiếm",
-                        subtitle = "Chạm nút \"Dán\" phía trên hoặc nhập link trực tiếp",
+                        subtitle = "Chạm icon Dán trên thanh tìm kiếm hoặc nhập link trực tiếp",
                         isLast = false
                     )
                     GuideStepRow(
@@ -267,15 +282,16 @@ private fun FeatureTile(
     title: String,
     description: String,
     icon: ImageVector,
-    tint: Color,
-    bgTint: Color,
+    accentGlow: Color,
     cardBackground: Color,
     cardBorderColor: Color,
     modifier: Modifier = Modifier
 ) {
+    val isDark = LocalIsDark.current
+
     Card(
         modifier = modifier,
-        shape = RoundedCornerShape(26.dp),
+        shape = RoundedCornerShape(22.dp),
         colors = CardDefaults.cardColors(containerColor = cardBackground),
         border = BorderStroke(1.dp, cardBorderColor),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
@@ -284,20 +300,39 @@ private fun FeatureTile(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 18.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
+            // Liquid Glass Disc with Luminescent Accent Glow (Apple VisionOS style)
             Box(
                 modifier = Modifier
-                    .size(40.dp)
-                    .clip(RoundedCornerShape(14.dp))
-                    .background(bgTint),
+                    .size(42.dp)
+                    .clip(RoundedCornerShape(13.dp))
+                    .background(
+                        Brush.radialGradient(
+                            colors = listOf(
+                                accentGlow.copy(alpha = if (isDark) 0.22f else 0.14f),
+                                if (isDark) Color.White.copy(alpha = 0.04f) else Color.Black.copy(alpha = 0.03f)
+                            )
+                        )
+                    )
+                    .border(
+                        width = 0.75.dp,
+                        brush = Brush.linearGradient(
+                            colors = listOf(
+                                if (isDark) Color.White.copy(alpha = 0.35f) else Color.White.copy(alpha = 0.85f),
+                                accentGlow.copy(alpha = 0.40f),
+                                if (isDark) Color.White.copy(alpha = 0.06f) else Color.Black.copy(alpha = 0.04f)
+                            )
+                        ),
+                        shape = RoundedCornerShape(13.dp)
+                    ),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = icon,
                     contentDescription = null,
-                    tint = tint,
-                    modifier = Modifier.size(20.dp)
+                    tint = accentGlow,
+                    modifier = Modifier.size(21.dp)
                 )
             }
 
@@ -339,22 +374,43 @@ private fun GuideStepRow(
                 modifier = Modifier
                     .size(28.dp)
                     .clip(CircleShape)
-                    .background(Color(0xFF007AFF).copy(alpha = if (isDark) 0.22f else 0.12f)),
+                    .background(
+                        if (isDark) Color.White.copy(alpha = 0.08f)
+                        else Color.Black.copy(alpha = 0.04f)
+                    )
+                    .border(
+                        width = 0.75.dp,
+                        brush = Brush.linearGradient(
+                            colors = listOf(
+                                if (isDark) Color.White.copy(alpha = 0.35f) else Color.White.copy(alpha = 0.70f),
+                                if (isDark) Color(0xFF0A84FF).copy(alpha = 0.30f) else Color(0xFF007AFF).copy(alpha = 0.20f),
+                                if (isDark) Color.White.copy(alpha = 0.08f) else Color.Black.copy(alpha = 0.05f)
+                            )
+                        ),
+                        shape = CircleShape
+                    ),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
                     text = number,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Bold,
-                    color = Color(0xFF007AFF)
+                    color = if (isDark) Color(0xFF64D2FF) else Color(0xFF007AFF)
                 )
             }
             if (!isLast) {
                 Box(
                     modifier = Modifier
                         .width(1.5.dp)
-                        .height(24.dp)
-                        .background(if (isDark) Color(0xFF2C2C2E) else Color(0xFFE6E8EC))
+                        .height(26.dp)
+                        .background(
+                            Brush.verticalGradient(
+                                colors = listOf(
+                                    if (isDark) Color(0xFF0A84FF).copy(alpha = 0.45f) else Color(0xFF007AFF).copy(alpha = 0.35f),
+                                    if (isDark) Color.White.copy(alpha = 0.08f) else Color.Black.copy(alpha = 0.06f)
+                                )
+                            )
+                        )
                 )
             }
         }

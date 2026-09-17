@@ -40,6 +40,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.buwin.tiktokvideodownload.ui.components.liquid.LiquidRoundButton
 import com.buwin.tiktokvideodownload.ui.components.liquid.LiquidTopBar
 import com.buwin.tiktokvideodownload.ui.screens.settings.components.SettingsSectionTitle
 import com.buwin.tiktokvideodownload.ui.theme.AppThemeMode
@@ -51,9 +52,9 @@ import com.kyant.backdrop.backdrops.layerBackdrop
 import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import io.github.alexzhirkevich.cupertino.icons.CupertinoIcons
 import io.github.alexzhirkevich.cupertino.icons.filled.CheckmarkCircle
-import io.github.alexzhirkevich.cupertino.icons.outlined.Iphone
-import io.github.alexzhirkevich.cupertino.icons.outlined.Paintpalette
-import io.github.alexzhirkevich.cupertino.icons.outlined.Sparkles
+import io.github.alexzhirkevich.cupertino.icons.filled.CircleLefthalfed
+import io.github.alexzhirkevich.cupertino.icons.outlined.Moon
+import io.github.alexzhirkevich.cupertino.icons.outlined.SunMax
 
 /**
  * Dedicated Apple-style Theme & Appearance settings screen.
@@ -136,9 +137,8 @@ fun ThemeSettingsScreen(
                 Column(modifier = Modifier.fillMaxWidth()) {
                     // Option 1: System Default
                     ThemeOptionRow(
-                        icon = CupertinoIcons.Outlined.Iphone,
+                        icon = CupertinoIcons.Filled.CircleLefthalfed,
                         title = "Theo hệ thống",
-                        subtitle = "Tự động đổi sáng/tối theo máy",
                         isSelected = currentMode == AppThemeMode.SYSTEM,
                         onClick = { themePreferences.setThemeMode(AppThemeMode.SYSTEM) }
                     )
@@ -151,9 +151,8 @@ fun ThemeSettingsScreen(
 
                     // Option 2: Light Mode
                     ThemeOptionRow(
-                        icon = CupertinoIcons.Outlined.Sparkles,
-                        title = "Giao diện Sáng",
-                        subtitle = "Nền sáng ấm (#FAFAF9), thanh lịch",
+                        icon = CupertinoIcons.Outlined.SunMax,
+                        title = "Sáng",
                         isSelected = currentMode == AppThemeMode.LIGHT,
                         onClick = { themePreferences.setThemeMode(AppThemeMode.LIGHT) }
                     )
@@ -166,9 +165,8 @@ fun ThemeSettingsScreen(
 
                     // Option 3: Dark Mode
                     ThemeOptionRow(
-                        icon = CupertinoIcons.Outlined.Paintpalette,
-                        title = "Giao diện Tối",
-                        subtitle = "Đen OLED thuần khiết (#000000), tiết kiệm pin",
+                        icon = CupertinoIcons.Outlined.Moon,
+                        title = "Tối",
                         isSelected = currentMode == AppThemeMode.DARK,
                         onClick = { themePreferences.setThemeMode(AppThemeMode.DARK) }
                     )
@@ -196,21 +194,19 @@ fun ThemeSettingsScreen(
             subtitle = "Tùy chỉnh chế độ hiển thị sáng / tối",
             isDark = isDark,
             navigationIcon = {
-                Surface(
+                LiquidRoundButton(
                     onClick = onBack,
-                    shape = CircleShape,
-                    color = if (isDark) Color.White.copy(alpha = 0.12f) else Color.White.copy(alpha = 0.70f),
-                    border = BorderStroke(1.dp, if (isDark) Color(0xFF2C2C2E) else Color(0xFFE5E7EB)),
-                    modifier = Modifier.size(38.dp)
+                    backdrop = contentBackdrop,
+                    size = 40.dp,
+                    showBorder = false,
+                    surfaceColor = if (isDark) Color.White.copy(alpha = 0.18f) else Color.White.copy(alpha = 0.65f)
                 ) {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Quay lại",
-                            tint = MaterialTheme.colorScheme.onSurface,
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = "Quay lại",
+                        tint = if (isDark) Color.White else Color(0xFF1C1C1E),
+                        modifier = Modifier.size(20.dp)
+                    )
                 }
             }
         )
@@ -339,13 +335,12 @@ private fun ThemeMockupCard(
 }
 
 /**
- * Single theme option row with icon, title, subtitle, and selection tick.
+ * Single theme option row with icon, title, and selection tick.
  */
 @Composable
 private fun ThemeOptionRow(
     icon: ImageVector,
     title: String,
-    subtitle: String,
     isSelected: Boolean,
     onClick: () -> Unit
 ) {
@@ -353,7 +348,7 @@ private fun ThemeOptionRow(
         modifier = Modifier
             .fillMaxWidth()
             .clickable { onClick() }
-            .padding(horizontal = 16.dp, vertical = 13.dp),
+            .padding(horizontal = 16.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
@@ -368,20 +363,12 @@ private fun ThemeOptionRow(
                 modifier = Modifier.size(22.dp)
             )
             Spacer(modifier = Modifier.width(14.dp))
-            Column {
-                Text(
-                    text = title,
-                    fontSize = 15.sp,
-                    fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
-                    color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
-                )
-                Spacer(modifier = Modifier.height(2.dp))
-                Text(
-                    text = subtitle,
-                    fontSize = 12.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
+            Text(
+                text = title,
+                fontSize = 15.5.sp,
+                fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
+                color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+            )
         }
 
         if (isSelected) {

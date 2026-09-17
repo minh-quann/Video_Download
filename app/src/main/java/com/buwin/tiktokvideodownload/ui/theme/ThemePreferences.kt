@@ -17,6 +17,9 @@ class ThemePreferences(context: Context) {
     var currentThemeMode by mutableStateOf(loadThemeMode())
         private set
 
+    var isAutoPasteEnabled by mutableStateOf(loadAutoPaste())
+        private set
+
     private fun loadThemeMode(): AppThemeMode {
         val saved = prefs.getString("theme_mode", AppThemeMode.SYSTEM.name)
         return try {
@@ -26,8 +29,17 @@ class ThemePreferences(context: Context) {
         }
     }
 
+    private fun loadAutoPaste(): Boolean {
+        return prefs.getBoolean("auto_detect_clipboard_link", false)
+    }
+
     fun setThemeMode(mode: AppThemeMode) {
         currentThemeMode = mode
         prefs.edit().putString("theme_mode", mode.name).apply()
+    }
+
+    fun updateAutoPasteEnabled(enabled: Boolean) {
+        isAutoPasteEnabled = enabled
+        prefs.edit().putBoolean("auto_detect_clipboard_link", enabled).apply()
     }
 }

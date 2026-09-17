@@ -30,9 +30,9 @@ import com.buwin.tiktokvideodownload.ui.components.liquid.LiquidToggle
 import com.buwin.tiktokvideodownload.ui.theme.AppThemeMode
 import com.kyant.backdrop.Backdrop
 import io.github.alexzhirkevich.cupertino.icons.CupertinoIcons
+import io.github.alexzhirkevich.cupertino.icons.filled.CircleLefthalfed
 import io.github.alexzhirkevich.cupertino.icons.outlined.Folder
 import io.github.alexzhirkevich.cupertino.icons.outlined.InfoCircle
-import io.github.alexzhirkevich.cupertino.icons.outlined.Paintpalette
 import io.github.alexzhirkevich.cupertino.icons.outlined.Sparkles
 import io.github.alexzhirkevich.cupertino.icons.outlined.Trash
 
@@ -125,7 +125,7 @@ fun SettingsAppearanceCard(
             }
 
             SettingsRowItem(
-                icon = CupertinoIcons.Outlined.Paintpalette,
+                icon = CupertinoIcons.Filled.CircleLefthalfed,
                 title = "Giao diện ứng dụng",
                 trailingText = currentThemeTitle,
                 chevronColor = chevronColor,

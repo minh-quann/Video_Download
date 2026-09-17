@@ -13,6 +13,7 @@ import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
@@ -27,6 +28,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
@@ -68,9 +70,9 @@ import com.kyant.backdrop.shadow.InnerShadow
 import com.kyant.backdrop.shadow.Shadow
 import com.kyant.shapes.Capsule
 import io.github.alexzhirkevich.cupertino.icons.CupertinoIcons
-import io.github.alexzhirkevich.cupertino.icons.filled.DocOnDoc
 import io.github.alexzhirkevich.cupertino.icons.filled.XmarkCircle
 import io.github.alexzhirkevich.cupertino.icons.outlined.ArrowDownToLine
+import io.github.alexzhirkevich.cupertino.icons.outlined.Clipboard
 import io.github.alexzhirkevich.cupertino.icons.outlined.MagnifyingGlass
 
 /**
@@ -120,11 +122,8 @@ fun LiquidSearchBar(
 
     val accentColor = if (isLightTheme) Color(0xFF007AFF) else Color(0xFF0A84FF)
     val contentColor = if (isLightTheme) Color(0xFF0F172A) else Color(0xFFF8FAFC)
-    val containerColor = if (isLightTheme) {
-        Color.White.copy(0.68f)
-    } else {
-        Color(0xFF18181B).copy(0.62f)
-    }
+    val containerColor = if (isLightTheme) Color.White else Color(0xFF1C1C1E)
+    val searchBorderColor = if (isLightTheme) Color(0xFFE6E8EC) else Color(0xFF2C2C2E)
 
     // Apple iOS 26 fluid spring physics (mass: 1.0, stiffness: 350.0, damping: 30.0 -> dampingRatio: 0.80f)
     val springFloatSpec = spring<Float>(dampingRatio = 0.80f, stiffness = 350f)
@@ -154,7 +153,7 @@ fun LiquidSearchBar(
         modifier = modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // ── 1. Main Liquid Glass Search Field (Smoothly animates width with zero relayout overhead) ──
+        // ── 1. Main Search Field (Matches card background and subtle border with zero blue tint) ──
         Row(
             modifier = Modifier
                 .weight(1f)
@@ -163,35 +162,12 @@ fun LiquidSearchBar(
                     scaleX = searchScale
                     scaleY = searchScale
                 }
-                .drawBackdrop(
-                    backdrop = backdrop,
-                    shape = { Capsule() },
-                    effects = {
-                        vibrancy()
-                        blur(if (isLightTheme) 10f.dp.toPx() else 8f.dp.toPx())
-                        lens(
-                            refractionHeight = 12f.dp.toPx(),
-                            refractionAmount = 18f.dp.toPx(),
-                            depthEffect = true,
-                            chromaticAberration = true
-                        )
-                    },
-                    highlight = { Highlight.Default },
-                    shadow = {
-                        Shadow(
-                            radius = if (isEditing) 12f.dp else 8f.dp,
-                            color = if (isLightTheme) Color.Black.copy(alpha = 0.07f) else Color.Black.copy(alpha = 0.35f)
-                        )
-                    },
-                    innerShadow = {
-                        InnerShadow(
-                            radius = 6f.dp,
-                            alpha = if (isLightTheme) 0.07f else 0.16f
-                        )
-                    },
-                    onDrawSurface = {
-                        drawRect(containerColor)
-                    }
+                .clip(RoundedCornerShape(25.dp))
+                .background(containerColor)
+                .border(
+                    width = 1.dp,
+                    color = searchBorderColor,
+                    shape = RoundedCornerShape(25.dp)
                 )
                 .clickable(
                     interactionSource = searchBarInteractionSource,
@@ -264,7 +240,7 @@ fun LiquidSearchBar(
             )
 
             // Trailing Quick Actions
-            // Quick Paste Chip (shown when field is empty)
+            // Quick Paste Action (Apple-style minimalist glass circle icon button, shown when field is empty)
             AnimatedVisibility(
                 visible = value.isEmpty() && onPaste != null,
                 enter = fadeIn(animationSpec = tween(150)) + scaleIn(initialScale = 0.85f),
@@ -276,38 +252,33 @@ fun LiquidSearchBar(
                             scaleX = pasteScale
                             scaleY = pasteScale
                         }
+                        .size(36.dp)
                         .clip(CircleShape)
-                        .background(accentColor.copy(alpha = if (isLightTheme) 0.12f else 0.22f))
+                        .background(
+                            if (isLightTheme) Color.Black.copy(alpha = 0.05f)
+                            else Color.White.copy(alpha = 0.09f)
+                        )
+                        .border(
+                            width = 0.75.dp,
+                            color = if (isLightTheme) Color.Black.copy(alpha = 0.08f)
+                            else Color.White.copy(alpha = 0.16f),
+                            shape = CircleShape
+                        )
                         .clickable(
                             interactionSource = pasteInteractionSource,
                             indication = null,
                             role = Role.Button
                         ) {
                             onPaste?.invoke()
-                        }
-                        .padding(horizontal = 8.dp, vertical = 4.dp),
+                        },
                     contentAlignment = Alignment.Center
                 ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        Icon(
-                            imageVector = CupertinoIcons.Filled.DocOnDoc,
-                            contentDescription = "Dán",
-                            tint = accentColor,
-                            modifier = Modifier.size(13.dp)
-                        )
-                        BasicText(
-                            text = "Dán",
-                            style = TextStyle(
-                                color = accentColor,
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                platformStyle = PlatformTextStyle(includeFontPadding = false)
-                            )
-                        )
-                    }
+                    Icon(
+                        imageVector = CupertinoIcons.Outlined.Clipboard,
+                        contentDescription = "Dán từ bảng nhớ tạm",
+                        tint = accentColor,
+                        modifier = Modifier.size(19.dp)
+                    )
                 }
             }
 
@@ -319,7 +290,7 @@ fun LiquidSearchBar(
             ) {
                 Box(
                     modifier = Modifier
-                        .size(26.dp)
+                        .size(36.dp)
                         .clip(CircleShape)
                         .clickable(role = Role.Button) { onValueChange("") },
                     contentAlignment = Alignment.Center
@@ -328,7 +299,7 @@ fun LiquidSearchBar(
                         imageVector = CupertinoIcons.Filled.XmarkCircle,
                         contentDescription = "Xóa nội dung",
                         tint = contentColor.copy(alpha = 0.45f),
-                        modifier = Modifier.size(18.dp)
+                        modifier = Modifier.size(20.dp)
                     )
                 }
             }
@@ -355,8 +326,10 @@ fun LiquidSearchBar(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Spacer(modifier = Modifier.width(8.dp))
 
-                val buttonBgColor = if (value.isNotEmpty() || isLoading) accentColor else containerColor
-                val buttonTextColor = if (value.isNotEmpty() || isLoading) Color.White else accentColor
+                val isActionActive = value.isNotEmpty() || isLoading
+                val buttonBgColor = if (isActionActive) accentColor else containerColor
+                val buttonBorderColor = if (isActionActive) Color.Transparent else searchBorderColor
+                val buttonTextColor = if (isActionActive) Color.White else contentColor.copy(alpha = 0.50f)
 
                 Box(
                     modifier = Modifier
@@ -365,31 +338,17 @@ fun LiquidSearchBar(
                             scaleX = downloadScale
                             scaleY = downloadScale
                         }
-                        .drawBackdrop(
-                            backdrop = backdrop,
-                            shape = { Capsule() },
-                            effects = {
-                                vibrancy()
-                                blur(if (isLightTheme) 8f.dp.toPx() else 6f.dp.toPx())
-                                lens(
-                                    refractionHeight = 12f.dp.toPx(),
-                                    refractionAmount = 16f.dp.toPx(),
-                                    depthEffect = true
-                                )
-                            },
-                            highlight = { Highlight.Default },
-                            shadow = {
-                                Shadow(
-                                    radius = 8f.dp,
-                                    color = if (isLightTheme) Color.Black.copy(alpha = 0.08f) else Color.Black.copy(alpha = 0.35f)
-                                )
-                            },
-                            onDrawSurface = { drawRect(buttonBgColor) }
+                        .clip(RoundedCornerShape(25.dp))
+                        .background(buttonBgColor)
+                        .border(
+                            width = 1.dp,
+                            color = buttonBorderColor,
+                            shape = RoundedCornerShape(25.dp)
                         )
                         .clickable(
                             interactionSource = downloadInteractionSource,
                             indication = null,
-                            enabled = !isLoading,
+                            enabled = !isLoading && isActionActive,
                             role = Role.Button
                         ) {
                             focusManager.clearFocus()

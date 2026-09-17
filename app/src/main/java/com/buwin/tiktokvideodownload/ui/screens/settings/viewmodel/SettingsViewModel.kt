@@ -25,7 +25,7 @@ data class SettingsUiState(
     val showClearHistoryConfirm: Boolean = false,
     val showThemeOptionsMenu: Boolean = false,
     val isThemeScreenOpen: Boolean = false,
-    val autoPasteEnabled: Boolean = true
+    val autoPasteEnabled: Boolean = false
 )
 
 /**
@@ -38,7 +38,9 @@ class SettingsViewModel(
     val themePreferences: ThemePreferences
 ) : ViewModel() {
 
-    private val _uiState = MutableStateFlow(SettingsUiState())
+    private val _uiState = MutableStateFlow(
+        SettingsUiState(autoPasteEnabled = themePreferences.isAutoPasteEnabled)
+    )
     val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
 
     init {
@@ -141,6 +143,7 @@ class SettingsViewModel(
     }
 
     fun setAutoPasteEnabled(enabled: Boolean) {
+        themePreferences.updateAutoPasteEnabled(enabled)
         _uiState.update { it.copy(autoPasteEnabled = enabled) }
     }
 
