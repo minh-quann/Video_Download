@@ -36,6 +36,8 @@ import com.kyant.backdrop.shadow.Shadow
 import com.kyant.shapes.Capsule
 import io.github.alexzhirkevich.cupertino.icons.CupertinoIcons
 import io.github.alexzhirkevich.cupertino.icons.filled.Heart
+import io.github.alexzhirkevich.cupertino.icons.filled.InfoCircle
+import io.github.alexzhirkevich.cupertino.icons.filled.SquareAndArrowUp
 import io.github.alexzhirkevich.cupertino.icons.outlined.Heart
 import io.github.alexzhirkevich.cupertino.icons.outlined.InfoCircle
 import io.github.alexzhirkevich.cupertino.icons.outlined.SliderHorizontal3
@@ -74,7 +76,7 @@ fun PlayerImageBottomBar(
     val isLightTheme = !isDark
     val containerColor = if (isLightTheme) Color.White.copy(alpha = 0.28f)
     else Color(0xFF505056).copy(alpha = 0.55f)
-    val contentIconTint = if (isDark) Color.White else Color(0xFF1C1C1E)
+    val contentIconTint = if (isDark) Color.White else Color.Black
 
     val animationScope = rememberCoroutineScope()
     val centerInteractiveHighlight = remember(animationScope) {
@@ -96,7 +98,7 @@ fun PlayerImageBottomBar(
             isDark = isDark
         ) {
             Icon(
-                imageVector = CupertinoIcons.Outlined.SquareAndArrowUp,
+                imageVector = CupertinoIcons.Filled.SquareAndArrowUp,
                 contentDescription = "Chia sẻ",
                 tint = contentIconTint,
                 modifier = Modifier.size(20.dp)
@@ -204,7 +206,7 @@ fun PlayerImageBottomBar(
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
-                        imageVector = CupertinoIcons.Outlined.InfoCircle,
+                        imageVector = CupertinoIcons.Filled.InfoCircle,
                         contentDescription = "Thông tin chi tiết",
                         tint = contentIconTint,
                         modifier = Modifier.size(20.dp)

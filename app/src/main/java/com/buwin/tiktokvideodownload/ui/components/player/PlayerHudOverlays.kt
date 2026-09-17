@@ -75,6 +75,7 @@ fun DoubleTapSeekIndicator(
     } else {
         Color(0xFF505056).copy(alpha = 0.55f)
     }
+    val contentColor = if (isDark) Color.White else Color.Black
 
     AnimatedVisibility(
         visible = visible,
@@ -133,13 +134,13 @@ fun DoubleTapSeekIndicator(
                 Icon(
                     imageVector = if (isForward) CupertinoIcons.Filled.Forward else CupertinoIcons.Filled.Backward,
                     contentDescription = null,
-                    tint = Color.White,
+                    tint = contentColor,
                     modifier = Modifier.size(28.dp)
                 )
                 Spacer(modifier = Modifier.height(3.dp))
                 Text(
                     text = if (isForward) "+5s" else "-5s",
-                    color = Color.White,
+                    color = contentColor,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Bold
                 )
@@ -177,17 +178,19 @@ fun AppleVerticalLiquidSlider(
         label = "LiquidSliderProgress"
     )
 
+    val defaultContentColor = if (isDark) Color.White else Color.Black
+
     // Dynamic contrast inversion: colors invert when covered by the bright progress fill
     val isIconCovered = animatedFraction >= 0.20f
     val iconColor by animateColorAsState(
-        targetValue = if (isIconCovered) Color(0xFF1C1C1E) else Color.White,
+        targetValue = if (isIconCovered) Color.Black else defaultContentColor,
         animationSpec = tween(120),
         label = "SliderIconColor"
     )
 
     val isTextCovered = animatedFraction >= 0.86f
     val textColor by animateColorAsState(
-        targetValue = if (isTextCovered) Color(0xFF1C1C1E) else Color.White,
+        targetValue = if (isTextCovered) Color.Black else defaultContentColor,
         animationSpec = tween(120),
         label = "SliderTextColor"
     )
@@ -364,6 +367,7 @@ fun SeekScrubHud(
     } else {
         Color(0xFF505056).copy(alpha = 0.55f)
     }
+    val contentColor = if (isDark) Color.White else Color.Black
 
     AnimatedVisibility(
         visible = visible,
@@ -426,13 +430,13 @@ fun SeekScrubHud(
                 Icon(
                     imageVector = if (diffSeconds >= 0) Icons.Filled.FastForward else Icons.Filled.FastRewind,
                     contentDescription = null,
-                    tint = Color.White,
+                    tint = contentColor,
                     modifier = Modifier.size(24.dp)
                 )
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(
                         text = "${formatDuration(targetSeekMs)} / ${formatDuration(totalDurationMs)}",
-                        color = Color.White,
+                        color = contentColor,
                         fontSize = 15.sp,
                         fontWeight = FontWeight.Bold
                     )

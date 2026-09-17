@@ -55,7 +55,7 @@ fun PlayerBottomBar(
     isDark: Boolean = LocalIsDark.current,
     modifier: Modifier = Modifier
 ) {
-    val contentColor = if (isDark) Color.White else Color(0xFF1C1C1E)
+    val contentColor = if (isDark) Color.White else Color.Black
     var isDraggingSlider by remember { mutableStateOf(false) }
     var scrubbedPositionMs by remember { mutableIntStateOf(0) }
 

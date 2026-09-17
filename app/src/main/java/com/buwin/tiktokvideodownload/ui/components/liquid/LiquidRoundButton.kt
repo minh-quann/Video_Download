@@ -65,7 +65,7 @@ fun LiquidRoundButton(
         else Color(0xFF505056).copy(alpha = 0.55f)
     }
 
-    val contentColor = if (isDark) Color.White else Color(0xFF1C1C1E)
+    val contentColor = if (isDark) Color.White else Color.Black
 
     val animationScope = rememberCoroutineScope()
     val interactiveHighlight = remember(animationScope) {

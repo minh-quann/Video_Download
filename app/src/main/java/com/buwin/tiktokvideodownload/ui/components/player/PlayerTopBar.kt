@@ -14,9 +14,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ContentCut
-import androidx.compose.material.icons.filled.Share
-import androidx.compose.material.icons.filled.VolumeOff
-import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -25,11 +22,13 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.buwin.tiktokvideodownload.ui.components.liquid.LiquidRoundButton
+import com.buwin.tiktokvideodownload.ui.theme.LocalIsDark
 import com.kyant.backdrop.Backdrop
 import io.github.alexzhirkevich.cupertino.icons.CupertinoIcons
-import com.buwin.tiktokvideodownload.ui.theme.LocalIsDark
-import io.github.alexzhirkevich.cupertino.icons.outlined.InfoCircle
-import io.github.alexzhirkevich.cupertino.icons.outlined.SquareAndArrowUp
+import io.github.alexzhirkevich.cupertino.icons.filled.InfoCircle
+import io.github.alexzhirkevich.cupertino.icons.filled.SpeakerSlash
+import io.github.alexzhirkevich.cupertino.icons.filled.SpeakerWave2
+import io.github.alexzhirkevich.cupertino.icons.filled.SquareAndArrowUp
 
 /**
  * Clean, translucent gallery top bar featuring Apple / Liquid Glass buttons.
@@ -50,7 +49,7 @@ fun PlayerTopBar(
     isDark: Boolean = LocalIsDark.current,
     modifier: Modifier = Modifier
 ) {
-    val contentColor = if (isDark) Color.White else Color(0xFF1C1C1E)
+    val contentColor = if (isDark) Color.White else Color.Black
 
     Box(
         modifier = modifier
@@ -83,7 +82,7 @@ fun PlayerTopBar(
                     imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                     contentDescription = "Quay lại",
                     tint = contentColor,
-                    modifier = Modifier.size(20.dp)
+                    modifier = Modifier.size(22.dp)
                 )
             }
 
@@ -102,10 +101,10 @@ fun PlayerTopBar(
                             isDark = isDark
                         ) {
                             Icon(
-                                imageVector = if (isMuted) Icons.Filled.VolumeOff else Icons.Filled.VolumeUp,
+                                imageVector = if (isMuted) CupertinoIcons.Filled.SpeakerSlash else CupertinoIcons.Filled.SpeakerWave2,
                                 contentDescription = if (isMuted) "Bật âm" else "Tắt âm",
                                 tint = if (isMuted) Color(0xFFEF4444) else contentColor,
-                                modifier = Modifier.size(19.dp)
+                                modifier = Modifier.size(20.dp)
                             )
                         }
                     }
@@ -122,7 +121,7 @@ fun PlayerTopBar(
                                 imageVector = Icons.Filled.ContentCut,
                                 contentDescription = "Chỉnh sửa video",
                                 tint = contentColor,
-                                modifier = Modifier.size(18.dp)
+                                modifier = Modifier.size(20.dp)
                             )
                         }
                     }
@@ -136,10 +135,10 @@ fun PlayerTopBar(
                             isDark = isDark
                         ) {
                             Icon(
-                                imageVector = CupertinoIcons.Outlined.InfoCircle,
+                                imageVector = CupertinoIcons.Filled.InfoCircle,
                                 contentDescription = "Thông tin chi tiết",
                                 tint = contentColor,
-                                modifier = Modifier.size(21.dp)
+                                modifier = Modifier.size(22.dp)
                             )
                         }
                     }
@@ -152,10 +151,10 @@ fun PlayerTopBar(
                         isDark = isDark
                     ) {
                         Icon(
-                            imageVector = CupertinoIcons.Outlined.SquareAndArrowUp,
+                            imageVector = CupertinoIcons.Filled.SquareAndArrowUp,
                             contentDescription = "Chia sẻ",
                             tint = contentColor,
-                            modifier = Modifier.size(19.dp)
+                            modifier = Modifier.size(20.dp)
                         )
                     }
                 }
