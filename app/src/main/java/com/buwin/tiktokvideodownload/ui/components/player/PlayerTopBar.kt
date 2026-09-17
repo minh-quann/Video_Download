@@ -27,8 +27,8 @@ import androidx.compose.ui.unit.dp
 import com.buwin.tiktokvideodownload.ui.components.liquid.LiquidRoundButton
 import com.kyant.backdrop.Backdrop
 import io.github.alexzhirkevich.cupertino.icons.CupertinoIcons
+import com.buwin.tiktokvideodownload.ui.theme.LocalIsDark
 import io.github.alexzhirkevich.cupertino.icons.outlined.InfoCircle
-
 import io.github.alexzhirkevich.cupertino.icons.outlined.SquareAndArrowUp
 
 /**
@@ -47,8 +47,11 @@ fun PlayerTopBar(
     onOpenEditor: (() -> Unit)? = null,
     showMute: Boolean = true,
     isImage: Boolean = false,
+    isDark: Boolean = LocalIsDark.current,
     modifier: Modifier = Modifier
 ) {
+    val contentColor = if (isDark) Color.White else Color(0xFF1C1C1E)
+
     Box(
         modifier = modifier
             .fillMaxWidth()
@@ -74,12 +77,12 @@ fun PlayerTopBar(
                 onClick = onDismiss,
                 backdrop = backdrop,
                 size = 40.dp,
-                surfaceColor = Color.White.copy(alpha = 0.20f)
+                isDark = isDark
             ) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                     contentDescription = "Quay lại",
-                    tint = Color.White,
+                    tint = contentColor,
                     modifier = Modifier.size(20.dp)
                 )
             }
@@ -96,12 +99,12 @@ fun PlayerTopBar(
                             onClick = onToggleMute,
                             backdrop = backdrop,
                             size = 40.dp,
-                            surfaceColor = Color.White.copy(alpha = 0.20f)
+                            isDark = isDark
                         ) {
                             Icon(
                                 imageVector = if (isMuted) Icons.Filled.VolumeOff else Icons.Filled.VolumeUp,
                                 contentDescription = if (isMuted) "Bật âm" else "Tắt âm",
-                                tint = if (isMuted) Color(0xFFEF4444) else Color.White,
+                                tint = if (isMuted) Color(0xFFEF4444) else contentColor,
                                 modifier = Modifier.size(19.dp)
                             )
                         }
@@ -113,12 +116,12 @@ fun PlayerTopBar(
                             onClick = onOpenEditor,
                             backdrop = backdrop,
                             size = 40.dp,
-                            surfaceColor = Color.White.copy(alpha = 0.20f)
+                            isDark = isDark
                         ) {
                             Icon(
                                 imageVector = Icons.Filled.ContentCut,
                                 contentDescription = "Chỉnh sửa video",
-                                tint = Color.White,
+                                tint = contentColor,
                                 modifier = Modifier.size(18.dp)
                             )
                         }
@@ -130,12 +133,12 @@ fun PlayerTopBar(
                             onClick = onOpenDetails,
                             backdrop = backdrop,
                             size = 40.dp,
-                            surfaceColor = Color.White.copy(alpha = 0.20f)
+                            isDark = isDark
                         ) {
                             Icon(
                                 imageVector = CupertinoIcons.Outlined.InfoCircle,
                                 contentDescription = "Thông tin chi tiết",
-                                tint = Color.White,
+                                tint = contentColor,
                                 modifier = Modifier.size(21.dp)
                             )
                         }
@@ -146,12 +149,12 @@ fun PlayerTopBar(
                         onClick = onShare,
                         backdrop = backdrop,
                         size = 40.dp,
-                        surfaceColor = Color.White.copy(alpha = 0.20f)
+                        isDark = isDark
                     ) {
                         Icon(
                             imageVector = CupertinoIcons.Outlined.SquareAndArrowUp,
                             contentDescription = "Chia sẻ",
-                            tint = Color.White,
+                            tint = contentColor,
                             modifier = Modifier.size(19.dp)
                         )
                     }

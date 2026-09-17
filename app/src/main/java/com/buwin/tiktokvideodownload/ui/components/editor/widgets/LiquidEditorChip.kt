@@ -31,6 +31,8 @@ import com.kyant.backdrop.shadow.InnerShadow
 import com.kyant.backdrop.shadow.Shadow
 import com.kyant.shapes.Capsule
 
+import com.buwin.tiktokvideodownload.ui.theme.LocalIsDark
+
 /**
  * Liquid Glass pill-shaped chip for the editor toolbar.
  * Uses drawBackdrop for glass refraction (blur + lens + vibrancy).
@@ -47,8 +49,10 @@ fun LiquidEditorChip(
     hasActiveOp: Boolean,
     backdrop: Backdrop,
     onClick: () -> Unit,
+    isDark: Boolean = LocalIsDark.current,
     modifier: Modifier = Modifier
 ) {
+    val isLightTheme = !isDark
     val accentColor = Color(0xFF007AFF)
     val tint = when {
         isActive -> accentColor.copy(alpha = 0.55f)
@@ -56,12 +60,12 @@ fun LiquidEditorChip(
         else -> Color.Unspecified
     }
     val surfaceColor = when {
-        isActive -> Color.White.copy(alpha = 0.12f)
-        else -> Color.White.copy(alpha = 0.06f)
+        isActive -> if (isLightTheme) Color.White.copy(alpha = 0.35f) else Color(0xFF505056).copy(alpha = 0.70f)
+        else -> if (isLightTheme) Color.White.copy(alpha = 0.28f) else Color(0xFF505056).copy(alpha = 0.55f)
     }
     val contentColor = when {
-        isActive || hasActiveOp -> Color.White
-        else -> Color(0xFFAAAAAA)
+        isActive || hasActiveOp -> if (isLightTheme) Color(0xFF007AFF) else Color.White
+        else -> if (isDark) Color.White else Color(0xFF1C1C1E)
     }
 
     Row(
@@ -71,24 +75,24 @@ fun LiquidEditorChip(
                 shape = { Capsule() },
                 effects = {
                     vibrancy()
-                    blur(3f.dp.toPx())
-                    lens(8f.dp.toPx(), 16f.dp.toPx())
+                    blur(8f.dp.toPx())
+                    lens(24f.dp.toPx(), 24f.dp.toPx())
                 },
                 highlight = {
-                    Highlight.Plain.copy(
-                        alpha = if (isActive) 0.6f else 0.3f
+                    Highlight.Default.copy(
+                        alpha = if (isLightTheme) 0.55f else 0.35f
                     )
                 },
                 shadow = {
                     Shadow(
-                        radius = 6f.dp,
-                        color = Color.Black.copy(alpha = 0.15f)
+                        radius = 8f.dp,
+                        color = if (isLightTheme) Color.Black.copy(alpha = 0.08f) else Color.Black.copy(alpha = 0.35f)
                     )
                 },
                 innerShadow = {
                     InnerShadow(
-                        radius = 3f.dp,
-                        alpha = 0.1f
+                        radius = 6f.dp,
+                        alpha = if (isLightTheme) 0.08f else 0.18f
                     )
                 },
                 onDrawSurface = {

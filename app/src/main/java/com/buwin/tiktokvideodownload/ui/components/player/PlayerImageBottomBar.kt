@@ -24,11 +24,15 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.util.lerp
 import com.buwin.tiktokvideodownload.ui.components.liquid.InteractiveHighlight
 import com.buwin.tiktokvideodownload.ui.components.liquid.LiquidRoundButton
+import com.buwin.tiktokvideodownload.ui.theme.LocalIsDark
 import com.kyant.backdrop.Backdrop
 import com.kyant.backdrop.drawBackdrop
 import com.kyant.backdrop.effects.blur
 import com.kyant.backdrop.effects.lens
 import com.kyant.backdrop.effects.vibrancy
+import com.kyant.backdrop.highlight.Highlight
+import com.kyant.backdrop.shadow.InnerShadow
+import com.kyant.backdrop.shadow.Shadow
 import com.kyant.shapes.Capsule
 import io.github.alexzhirkevich.cupertino.icons.CupertinoIcons
 import io.github.alexzhirkevich.cupertino.icons.filled.Heart
@@ -51,7 +55,9 @@ import kotlin.math.tanh
  * - Center: Seamless Liquid Glass Capsule holding 3 monochrome actions (Favorite, Info, Edit)
  *   with fluid rubber-band spring deformation and tactile bounce-back when dragged.
  * - Rightmost: Round Liquid Glass button for Delete (Trash).
- * All icons are monochrome white, clean, borderless, text-free SF Symbols.
+ * Supports dynamic light/dark mode identical to LiquidBottomTabs:
+ * - Dark: smoky dark glass (0xFF18181B @ 45%), white icons
+ * - Light: frosted white glass (Color.White @ 28%), dark icons
  */
 @Composable
 fun PlayerImageBottomBar(
@@ -62,8 +68,14 @@ fun PlayerImageBottomBar(
     onEdit: () -> Unit,
     onShare: () -> Unit,
     onDelete: () -> Unit,
+    isDark: Boolean = LocalIsDark.current,
     modifier: Modifier = Modifier
 ) {
+    val isLightTheme = !isDark
+    val containerColor = if (isLightTheme) Color.White.copy(alpha = 0.28f)
+    else Color(0xFF505056).copy(alpha = 0.55f)
+    val contentIconTint = if (isDark) Color.White else Color(0xFF1C1C1E)
+
     val animationScope = rememberCoroutineScope()
     val centerInteractiveHighlight = remember(animationScope) {
         InteractiveHighlight(animationScope = animationScope)
@@ -81,12 +93,12 @@ fun PlayerImageBottomBar(
             onClick = onShare,
             backdrop = backdrop,
             size = 46.dp,
-            surfaceColor = Color.White.copy(alpha = 0.20f)
+            isDark = isDark
         ) {
             Icon(
                 imageVector = CupertinoIcons.Outlined.SquareAndArrowUp,
                 contentDescription = "Chia sẻ",
-                tint = Color.White,
+                tint = contentIconTint,
                 modifier = Modifier.size(20.dp)
             )
         }
@@ -100,10 +112,24 @@ fun PlayerImageBottomBar(
                     shape = { Capsule() },
                     effects = {
                         vibrancy()
-                        blur(3f.dp.toPx())
-                        lens(12f.dp.toPx(), 24f.dp.toPx())
+                        blur(8f.dp.toPx())
+                        lens(24f.dp.toPx(), 24f.dp.toPx())
                     },
-                    highlight = null,
+                    highlight = {
+                        Highlight.Default.copy(alpha = if (isLightTheme) 0.55f else 0.35f)
+                    },
+                    shadow = {
+                        Shadow(
+                            radius = 8f.dp,
+                            color = if (isLightTheme) Color.Black.copy(alpha = 0.08f) else Color.Black.copy(alpha = 0.35f)
+                        )
+                    },
+                    innerShadow = {
+                        InnerShadow(
+                            radius = 6f.dp,
+                            alpha = if (isLightTheme) 0.08f else 0.18f
+                        )
+                    },
                     layerBlock = {
                         val progress = centerInteractiveHighlight.pressProgress
                         val offset = centerInteractiveHighlight.offset
@@ -133,7 +159,7 @@ fun PlayerImageBottomBar(
                         scaleY = pressScale * (scaleAlong * sin2 + scalePerp * cos2)
                     },
                     onDrawSurface = {
-                        drawRect(Color.White.copy(alpha = 0.20f))
+                        drawRect(containerColor)
                     }
                 )
                 .then(centerInteractiveHighlight.modifier)
@@ -152,15 +178,15 @@ fun PlayerImageBottomBar(
                         .clip(CircleShape)
                         .clickable(
                             interactionSource = remember { MutableInteractionSource() },
-                            indication = ripple(color = Color.White.copy(alpha = 0.3f)),
+                            indication = ripple(color = contentIconTint.copy(alpha = 0.2f)),
                             onClick = onToggleFavorite
                         ),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = if (isFavorite) CupertinoIcons.Filled.Heart else CupertinoIcons.Outlined.Heart,
-                        contentDescription = "Yêu thích",
-                        tint = Color.White,
+                        contentDescription = if (isFavorite) "Bỏ thích" else "Yêu thích",
+                        tint = if (isFavorite) Color(0xFFFF2D55) else contentIconTint,
                         modifier = Modifier.size(20.dp)
                     )
                 }
@@ -172,27 +198,27 @@ fun PlayerImageBottomBar(
                         .clip(CircleShape)
                         .clickable(
                             interactionSource = remember { MutableInteractionSource() },
-                            indication = ripple(color = Color.White.copy(alpha = 0.3f)),
+                            indication = ripple(color = contentIconTint.copy(alpha = 0.2f)),
                             onClick = onOpenDetails
                         ),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = CupertinoIcons.Outlined.InfoCircle,
-                        contentDescription = "Chi tiết",
-                        tint = Color.White,
-                        modifier = Modifier.size(21.dp)
+                        contentDescription = "Thông tin chi tiết",
+                        tint = contentIconTint,
+                        modifier = Modifier.size(20.dp)
                     )
                 }
 
-                // Edit Button (Apple Photos SliderHorizontal3)
+                // Edit Button
                 Box(
                     modifier = Modifier
                         .size(40.dp)
                         .clip(CircleShape)
                         .clickable(
                             interactionSource = remember { MutableInteractionSource() },
-                            indication = ripple(color = Color.White.copy(alpha = 0.3f)),
+                            indication = ripple(color = contentIconTint.copy(alpha = 0.2f)),
                             onClick = onEdit
                         ),
                     contentAlignment = Alignment.Center
@@ -200,7 +226,7 @@ fun PlayerImageBottomBar(
                     Icon(
                         imageVector = CupertinoIcons.Outlined.SliderHorizontal3,
                         contentDescription = "Chỉnh sửa",
-                        tint = Color.White,
+                        tint = contentIconTint,
                         modifier = Modifier.size(20.dp)
                     )
                 }
@@ -212,12 +238,12 @@ fun PlayerImageBottomBar(
             onClick = onDelete,
             backdrop = backdrop,
             size = 46.dp,
-            surfaceColor = Color.White.copy(alpha = 0.20f)
+            isDark = isDark
         ) {
             Icon(
                 imageVector = CupertinoIcons.Outlined.Trash,
                 contentDescription = "Xóa",
-                tint = Color.White,
+                tint = contentIconTint,
                 modifier = Modifier.size(20.dp)
             )
         }

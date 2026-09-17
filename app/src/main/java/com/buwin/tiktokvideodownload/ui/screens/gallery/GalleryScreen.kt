@@ -189,6 +189,8 @@ fun GalleryScreen(
         }
     }
 
+    val safeMediaItems = remember(mediaItems) { mediaItems.distinctBy { it.id } }
+
     Box(modifier = modifier.fillMaxSize()) {
         // ── 3-Column Native Gallery Grid ──
         LazyVerticalGrid(
@@ -202,7 +204,7 @@ fun GalleryScreen(
             verticalArrangement = Arrangement.spacedBy(2.dp)
         ) {
             // Empty state placeholder
-            if (mediaItems.isEmpty() && !isLoading) {
+            if (safeMediaItems.isEmpty() && !isLoading) {
                 item(span = { GridItemSpan(3) }) {
                     GalleryEmptyState(
                         isDark = isDark,
@@ -215,7 +217,7 @@ fun GalleryScreen(
             }
 
             // Media items: direct click opens full-screen player, long click opens actions
-            items(mediaItems, key = { it.id }) { item ->
+            items(safeMediaItems, key = { it.id }) { item ->
                 GalleryMediaCard(
                     item = item,
                     isDark = isDark,
@@ -230,14 +232,14 @@ fun GalleryScreen(
             backdrop = contentBackdrop,
             modifier = Modifier.align(Alignment.TopCenter),
             title = "Bộ sưu tập",
-            subtitle = "${mediaItems.size} tệp phương tiện trong máy",
+            subtitle = "${safeMediaItems.size} tệp phương tiện trong máy",
             isDark = isDark,
             actions = {
                 LiquidRoundButton(
                     onClick = { loadMedia() },
                     backdrop = contentBackdrop,
                     size = 40.dp,
-                    surfaceColor = if (isDark) Color.White.copy(alpha = 0.12f) else Color.Black.copy(alpha = 0.06f)
+                    isDark = isDark
                 ) {
                     if (isLoading && mediaItems.isEmpty()) {
                         CircularProgressIndicator(

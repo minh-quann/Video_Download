@@ -39,11 +39,15 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.util.lerp
 import com.buwin.tiktokvideodownload.ui.components.editor.model.ImageEditorTab
 import com.buwin.tiktokvideodownload.ui.components.liquid.InteractiveHighlight
+import com.buwin.tiktokvideodownload.ui.theme.LocalIsDark
 import com.kyant.backdrop.Backdrop
 import com.kyant.backdrop.drawBackdrop
 import com.kyant.backdrop.effects.blur
 import com.kyant.backdrop.effects.lens
 import com.kyant.backdrop.effects.vibrancy
+import com.kyant.backdrop.highlight.Highlight
+import com.kyant.backdrop.shadow.InnerShadow
+import com.kyant.backdrop.shadow.Shadow
 import com.kyant.shapes.Capsule
 import io.github.alexzhirkevich.cupertino.icons.CupertinoIcons
 import io.github.alexzhirkevich.cupertino.icons.outlined.CameraFilters
@@ -64,10 +68,15 @@ fun ImageEditorBottomBar(
     currentTab: ImageEditorTab,
     onTabSelected: (ImageEditorTab) -> Unit,
     backdrop: Backdrop,
+    isDark: Boolean = LocalIsDark.current,
     modifier: Modifier = Modifier
 ) {
     val coroutineScope = rememberCoroutineScope()
     val haptic = LocalHapticFeedback.current
+    val isLightTheme = !isDark
+    val containerColor = if (isLightTheme) Color.White.copy(alpha = 0.28f)
+    else Color(0xFF505056).copy(alpha = 0.55f)
+
     val bottomTabInteractiveHighlight = remember(coroutineScope) {
         InteractiveHighlight(animationScope = coroutineScope)
     }
@@ -81,10 +90,24 @@ fun ImageEditorBottomBar(
                 shape = { Capsule() },
                 effects = {
                     vibrancy()
-                    blur(3f.dp.toPx())
-                    lens(12f.dp.toPx(), 24f.dp.toPx())
+                    blur(8f.dp.toPx())
+                    lens(24f.dp.toPx(), 24f.dp.toPx())
                 },
-                highlight = null,
+                highlight = {
+                    Highlight.Default.copy(alpha = if (isLightTheme) 0.55f else 0.35f)
+                },
+                shadow = {
+                    Shadow(
+                        radius = 8f.dp,
+                        color = if (isLightTheme) Color.Black.copy(alpha = 0.08f) else Color.Black.copy(alpha = 0.35f)
+                    )
+                },
+                innerShadow = {
+                    InnerShadow(
+                        radius = 6f.dp,
+                        alpha = if (isLightTheme) 0.08f else 0.18f
+                    )
+                },
                 layerBlock = {
                     val progress = bottomTabInteractiveHighlight.pressProgress
                     val offset = bottomTabInteractiveHighlight.offset
@@ -114,7 +137,7 @@ fun ImageEditorBottomBar(
                     scaleY = pressScale * (scaleAlong * sin2 + scalePerp * cos2)
                 },
                 onDrawSurface = {
-                    drawRect(Color.White.copy(alpha = 0.20f))
+                    drawRect(containerColor)
                 }
             )
             .then(bottomTabInteractiveHighlight.modifier)
@@ -185,6 +208,7 @@ private fun EditorBottomPillTab(
     label: String,
     isSelected: Boolean,
     modifier: Modifier = Modifier,
+    isDark: Boolean = LocalIsDark.current,
     iconContent: @Composable (tint: Color) -> Unit,
     onClick: () -> Unit
 ) {
@@ -206,7 +230,7 @@ private fun EditorBottomPillTab(
         label = "triangle_scale"
     )
 
-    val contentColor = if (isSelected) Color(0xFFFFD60A) else Color(0xFF9E9EA4)
+    val contentColor = if (isSelected) Color(0xFFFFD60A) else if (isDark) Color(0xFF9E9EA4) else Color(0xFF636366)
 
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,

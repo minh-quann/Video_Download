@@ -1,9 +1,11 @@
 package com.buwin.tiktokvideodownload.ui.components.player
 
+import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.gestures.detectHorizontalDragGestures
-import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -19,12 +21,15 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.changedToUpIgnoreConsumed
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
 
 /**
- * Ultra-sleek minimalist timeline scrubber inspired by YouTube, Samsung, and Apple AVPlayer.
- * Features a razor-thin 3dp track expanding smoothly to 5dp on interaction, with an animated thumb dot.
+ * Apple iOS AVPlayer & Photos style minimalist video scrubber.
+ * Features a seamless 3.5dp pill track expanding smoothly to 6.5dp during scrubbing,
+ * with a dynamic haptic thumb bloom that appears only when interacting.
+ * Uses a unified awaitEachGesture handler to prevent tap/drag race conditions and thumb jumps.
  */
 @Composable
 fun SleekVideoScrubber(
@@ -34,7 +39,7 @@ fun SleekVideoScrubber(
     onScrub: ((Int) -> Unit)? = null,
     modifier: Modifier = Modifier,
     activeColor: Color = Color.White,
-    inactiveColor: Color = Color.White.copy(alpha = 0.28f)
+    inactiveColor: Color = Color.White.copy(alpha = 0.24f)
 ) {
     var isDragging by remember { mutableStateOf(false) }
     var dragRatio by remember { mutableFloatStateOf(0f) }
@@ -46,56 +51,59 @@ fun SleekVideoScrubber(
     val displayRatio = if (isDragging) dragRatio else currentRatio
 
     val trackHeightDp by animateDpAsState(
-        targetValue = if (isDragging) 5.dp else 3.dp,
+        targetValue = if (isDragging) 6.5.dp else 3.5.dp,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessLow
+        ),
         label = "scrubberHeight"
     )
+
+    // Apple-style thumb bloom: hidden during normal playback, reveals on touch
     val thumbRadiusDp by animateDpAsState(
-        targetValue = if (isDragging) 7.dp else 4.dp,
+        targetValue = if (isDragging) 6.5.dp else 0.dp,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessMedium
+        ),
         label = "thumbRadius"
     )
 
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .height(28.dp)
+            .height(32.dp)
             .pointerInput(durationMs) {
-                detectTapGestures(
-                    onPress = { offset ->
-                        isDragging = true
-                        val newRatio = (offset.x / size.width).coerceIn(0f, 1f)
-                        dragRatio = newRatio
-                        val targetMs = (newRatio * durationMs).toInt()
-                        onScrub?.invoke(targetMs)
-                        val success = tryAwaitRelease()
-                        isDragging = false
-                        if (success) {
-                            onSeek(targetMs)
+                if (durationMs <= 0) return@pointerInput
+                awaitEachGesture {
+                    val down = awaitFirstDown(requireUnconsumed = false)
+                    down.consume()
+                    isDragging = true
+                    val width = size.width.toFloat().coerceAtLeast(1f)
+                    var currentProgress = (down.position.x / width).coerceIn(0f, 1f)
+                    dragRatio = currentProgress
+                    onScrub?.invoke((currentProgress * durationMs).toInt())
+
+                    val pointerId = down.id
+                    try {
+                        while (true) {
+                            val event = awaitPointerEvent()
+                            val change = event.changes.firstOrNull { it.id == pointerId } ?: break
+                            if (change.changedToUpIgnoreConsumed()) {
+                                change.consume()
+                                break
+                            }
+                            change.consume()
+                            currentProgress = (change.position.x / width).coerceIn(0f, 1f)
+                            dragRatio = currentProgress
+                            onScrub?.invoke((currentProgress * durationMs).toInt())
                         }
-                    }
-                )
-            }
-            .pointerInput(durationMs) {
-                detectHorizontalDragGestures(
-                    onDragStart = { offset ->
-                        isDragging = true
-                        dragRatio = (offset.x / size.width).coerceIn(0f, 1f)
-                        onScrub?.invoke((dragRatio * durationMs).toInt())
-                    },
-                    onHorizontalDrag = { change, _ ->
-                        change.consume()
-                        val newRatio = (change.position.x / size.width).coerceIn(0f, 1f)
-                        dragRatio = newRatio
-                        onScrub?.invoke((newRatio * durationMs).toInt())
-                    },
-                    onDragEnd = {
-                        isDragging = false
-                        val targetMs = (dragRatio * durationMs).toInt()
-                        onSeek(targetMs)
-                    },
-                    onDragCancel = {
+                        val finalTargetMs = (dragRatio * durationMs).toInt()
+                        onSeek(finalTargetMs)
+                    } finally {
                         isDragging = false
                     }
-                )
+                }
             }
     ) {
         Canvas(modifier = Modifier.fillMaxSize()) {
@@ -106,7 +114,7 @@ fun SleekVideoScrubber(
 
             val activeWidth = (width * displayRatio).coerceIn(0f, width)
 
-            // Inactive Track (Background)
+            // Inactive Track (Translucent frosted glass white)
             drawRoundRect(
                 color = inactiveColor,
                 topLeft = Offset(0f, centerY - trackHeight / 2),
@@ -114,7 +122,7 @@ fun SleekVideoScrubber(
                 cornerRadius = CornerRadius(trackHeight / 2, trackHeight / 2)
             )
 
-            // Active Track (Played Progress)
+            // Active Track (Pure Apple White Progress)
             if (activeWidth > 0f) {
                 drawRoundRect(
                     color = activeColor,
@@ -124,14 +132,15 @@ fun SleekVideoScrubber(
                 )
             }
 
-            // Sleek Apple / Samsung Thumb Dot
-            if (thumbRadius > 0f) {
-                // Drop shadow / glow
+            // Apple Interactive Thumb Dot (Soft drop shadow + specular core)
+            if (thumbRadius > 0.5f) {
+                // Soft shadow for depth
                 drawCircle(
                     color = Color.Black.copy(alpha = 0.35f),
                     radius = thumbRadius + 1.5.dp.toPx(),
                     center = Offset(activeWidth, centerY)
                 )
+                // Crisp white thumb core
                 drawCircle(
                     color = Color.White,
                     radius = thumbRadius,

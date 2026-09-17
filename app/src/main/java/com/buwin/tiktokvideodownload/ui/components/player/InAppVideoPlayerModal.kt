@@ -8,9 +8,12 @@ import android.content.pm.ActivityInfo
 import android.content.res.Configuration
 import android.media.AudioManager
 import android.media.MediaPlayer
+import android.graphics.Matrix
+import android.graphics.SurfaceTexture
+import android.view.Surface
+import android.view.TextureView
 import android.view.WindowManager
 import android.widget.FrameLayout
-import android.widget.VideoView
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
@@ -72,6 +75,7 @@ import com.buwin.tiktokvideodownload.data.model.DownloadRecord
 import com.buwin.tiktokvideodownload.ui.components.editor.ImageEditorModal
 import com.buwin.tiktokvideodownload.ui.components.editor.VideoEditorModal
 import com.buwin.tiktokvideodownload.ui.components.dialog.AppConfirmationModal
+import com.buwin.tiktokvideodownload.ui.components.liquid.LiquidRoundButton
 import com.buwin.tiktokvideodownload.ui.components.toast.AppToast
 import com.kyant.backdrop.backdrops.layerBackdrop
 import com.kyant.backdrop.backdrops.rememberLayerBackdrop
@@ -134,9 +138,51 @@ fun InAppVideoPlayerModal(
     var showDetailsModal by remember { mutableStateOf(false) }
     var showDeleteConfirmDialog by remember { mutableStateOf(false) }
 
-    var videoViewRef by remember { mutableStateOf<VideoView?>(null) }
-    var mediaPlayerRef by remember { mutableStateOf<MediaPlayer?>(null) }
+    val mediaPlayer = remember { MediaPlayer() }
+    var textureSurface by remember { mutableStateOf<Surface?>(null) }
+    var textureViewRef by remember { mutableStateOf<TextureView?>(null) }
+    var videoDimensions by remember { mutableStateOf<Pair<Int, Int>>(0 to 0) }
     var isCompleted by remember { mutableStateOf(false) }
+    var isSeeking by remember { mutableStateOf(false) }
+
+    // Initialize & prepare MediaPlayer for hardware-accelerated TextureView rendering
+    LaunchedEffect(videoUri) {
+        if (videoUri != null && !isImage && !isAudio) {
+            try {
+                mediaPlayer.reset()
+                mediaPlayer.setDataSource(context, videoUri)
+                mediaPlayer.setOnPreparedListener { mp ->
+                    isPrepared = true
+                    totalDurationMs = mp.duration
+                    videoDimensions = mp.videoWidth to mp.videoHeight
+                    mp.isLooping = false
+                    mp.setOnSeekCompleteListener { seekMp ->
+                        isSeeking = false
+                        try {
+                            currentPositionMs = seekMp.currentPosition
+                        } catch (_: Exception) {}
+                    }
+                    if (isMuted) {
+                        mp.setVolume(0f, 0f)
+                    } else {
+                        mp.setVolume(1f, 1f)
+                    }
+                    textureViewRef?.let { tv ->
+                        updateTextureAspect(tv, mp.videoWidth, mp.videoHeight)
+                    }
+                    mp.start()
+                    isPlaying = true
+                }
+                mediaPlayer.setOnCompletionListener {
+                    isPlaying = false
+                    isCompleted = true
+                    showControls = true
+                }
+                mediaPlayer.setOnErrorListener { _, _, _ -> true }
+                mediaPlayer.prepareAsync()
+            } catch (_: Exception) {}
+        }
+    }
 
     // Screen brightness & system volume state
     val initialBrightness = remember {
@@ -185,6 +231,29 @@ fun InAppVideoPlayerModal(
         enterAnim.animateTo(1f, spring(0.85f, 420f))
     }
 
+    // High-precision seek using SEEK_CLOSEST and async guard to prevent snap-back glitch
+    val performSeek: (Int) -> Unit = { targetMs ->
+        val clamped = targetMs.coerceIn(0, totalDurationMs)
+        currentPositionMs = clamped
+        isSeeking = true
+        isCompleted = false
+        try {
+            mediaPlayer.seekTo(clamped.toLong(), MediaPlayer.SEEK_CLOSEST)
+        } catch (_: Exception) {
+            try {
+                mediaPlayer.seekTo(clamped)
+            } catch (_: Exception) {}
+        }
+    }
+
+    // Auto-timeout guard for isSeeking in case onSeekComplete does not fire
+    LaunchedEffect(isSeeking) {
+        if (isSeeking) {
+            delay(1000)
+            isSeeking = false
+        }
+    }
+
     val handleDismiss: () -> Unit = {
         if (!isBackDismissing) {
             isBackDismissing = true
@@ -221,28 +290,24 @@ fun InAppVideoPlayerModal(
         }
     }
 
-    // Sync playback position to update scrubber
-    LaunchedEffect(isPrepared, isPlaying) {
+    // Sync playback position to update scrubber (paused while seeking to prevent snap-back)
+    LaunchedEffect(isPrepared, isPlaying, isSeeking) {
         while (isPrepared && isPlaying) {
-            videoViewRef?.let { vv ->
+            if (!isSeeking) {
                 try {
-                    currentPositionMs = vv.currentPosition
-                } catch (_: Exception) {
-                }
+                    currentPositionMs = mediaPlayer.currentPosition
+                } catch (_: Exception) {}
             }
-            delay(200)
+            delay(150)
         }
     }
 
     // Sync Mute state to MediaPlayer
-    LaunchedEffect(isMuted, mediaPlayerRef) {
-        mediaPlayerRef?.let { mp ->
-            try {
-                val vol = if (isMuted) 0f else 1f
-                mp.setVolume(vol, vol)
-            } catch (_: Exception) {
-            }
-        }
+    LaunchedEffect(isMuted, isPrepared) {
+        try {
+            val vol = if (isMuted) 0f else 1f
+            mediaPlayer.setVolume(vol, vol)
+        } catch (_: Exception) {}
     }
 
     // Double tap rewind indicator auto-hide
@@ -273,26 +338,28 @@ fun InAppVideoPlayerModal(
                 window.attributes = lp
             }
             try {
-                videoViewRef?.stopPlayback()
-            } catch (_: Exception) {
-            }
+                mediaPlayer.stop()
+                mediaPlayer.reset()
+                mediaPlayer.release()
+            } catch (_: Exception) {}
+            textureSurface?.release()
+            textureSurface = null
         }
     }
 
     fun togglePlayPause() {
-        videoViewRef?.let { vv ->
-            if (isCompleted) {
-                vv.seekTo(0)
-                vv.start()
-                isPlaying = true
-                isCompleted = false
-            } else if (isPlaying) {
-                vv.pause()
-                isPlaying = false
-            } else {
-                vv.start()
-                isPlaying = true
-            }
+        if (isCompleted) {
+            performSeek(0)
+            try { mediaPlayer.start() } catch (_: Exception) {}
+            isPlaying = true
+            isCompleted = false
+        } else if (isPlaying) {
+            try { mediaPlayer.pause() } catch (_: Exception) {}
+            isPlaying = false
+            showControls = true
+        } else {
+            try { mediaPlayer.start() } catch (_: Exception) {}
+            isPlaying = true
         }
     }
 
@@ -300,7 +367,7 @@ fun InAppVideoPlayerModal(
         if (isImage) {
             showImageEditorModal = true
         } else {
-            videoViewRef?.pause()
+            try { mediaPlayer.pause() } catch (_: Exception) {}
             isPlaying = false
             showVideoEditorModal = true
         }
@@ -422,33 +489,41 @@ fun InAppVideoPlayerModal(
                 } else {
                     AndroidView(
                         factory = { ctx ->
-                            VideoView(ctx).apply {
+                            TextureView(ctx).apply {
                                 layoutParams = FrameLayout.LayoutParams(
                                     FrameLayout.LayoutParams.MATCH_PARENT,
                                     FrameLayout.LayoutParams.MATCH_PARENT
                                 )
-                                setVideoURI(videoUri)
-                                setOnPreparedListener { mp ->
-                                    mediaPlayerRef = mp
-                                    isPrepared = true
-                                    totalDurationMs = mp.duration
-                                    mp.isLooping = false
-                                    if (isMuted) {
-                                        mp.setVolume(0f, 0f)
+                                surfaceTextureListener = object : TextureView.SurfaceTextureListener {
+                                    override fun onSurfaceTextureAvailable(st: SurfaceTexture, w: Int, h: Int) {
+                                        val surface = Surface(st)
+                                        textureSurface = surface
+                                        try {
+                                            mediaPlayer.setSurface(surface)
+                                        } catch (_: Exception) {}
+                                        updateTextureAspect(this@apply, videoDimensions.first, videoDimensions.second)
                                     }
-                                    start()
-                                    isPlaying = true
+
+                                    override fun onSurfaceTextureSizeChanged(st: SurfaceTexture, w: Int, h: Int) {
+                                        updateTextureAspect(this@apply, videoDimensions.first, videoDimensions.second)
+                                    }
+
+                                    override fun onSurfaceTextureDestroyed(st: SurfaceTexture): Boolean {
+                                        textureSurface?.release()
+                                        textureSurface = null
+                                        try {
+                                            mediaPlayer.setSurface(null)
+                                        } catch (_: Exception) {}
+                                        return true
+                                    }
+
+                                    override fun onSurfaceTextureUpdated(st: SurfaceTexture) {}
                                 }
-                                setOnCompletionListener {
-                                    isPlaying = false
-                                    isCompleted = true
-                                    showControls = true
-                                }
-                                setOnErrorListener { _, _, _ ->
-                                    true
-                                }
-                                videoViewRef = this
+                                textureViewRef = this
                             }
+                        },
+                        update = { tv ->
+                            updateTextureAspect(tv, videoDimensions.first, videoDimensions.second)
                         },
                         modifier = Modifier.fillMaxSize()
                     )
@@ -516,8 +591,7 @@ fun InAppVideoPlayerModal(
                         }
                     },
                     onSeekScrubEnd = {
-                        videoViewRef?.seekTo(targetSeekMs)
-                        currentPositionMs = targetSeekMs
+                        performSeek(targetSeekMs)
                         coroutineScope.launch {
                             delay(600)
                             showSeekHud = false
@@ -525,14 +599,12 @@ fun InAppVideoPlayerModal(
                     },
                     onDoubleTapRewind = {
                         val newPos = (currentPositionMs - 5000).coerceAtLeast(0)
-                        videoViewRef?.seekTo(newPos)
-                        currentPositionMs = newPos
+                        performSeek(newPos)
                         rewindKey++
                     },
                     onDoubleTapForward = {
                         val newPos = (currentPositionMs + 5000).coerceAtMost(totalDurationMs)
-                        videoViewRef?.seekTo(newPos)
-                        currentPositionMs = newPos
+                        performSeek(newPos)
                         forwardKey++
                     },
                     onSingleTap = {
@@ -549,68 +621,86 @@ fun InAppVideoPlayerModal(
                     )
                 }
 
-                // Center Play/Pause Floating Action (for video only)
-                AnimatedVisibility(
-                    visible = !isAudio && !isImage && (showControls || !isPlaying || isCompleted),
-                    enter = fadeIn(),
-                    exit = fadeOut()
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(72.dp)
-                            .clip(CircleShape)
-                            .background(Color.Black.copy(alpha = 0.55f))
-                            .clickable(
-                                interactionSource = remember { MutableInteractionSource() },
-                                indication = null
-                            ) { togglePlayPause() },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = when {
-                                isCompleted -> CupertinoIcons.Outlined.ClockArrowCirclepath
-                                isPlaying -> CupertinoIcons.Filled.Pause
-                                else -> CupertinoIcons.Filled.Play
-                            },
-                            contentDescription = "Play/Pause",
-                            tint = Color.White,
-                            modifier = Modifier.size(34.dp)
-                        )
+            }
+
+            // Double Tap ±5s Indicators with Apple Liquid Glass
+            DoubleTapSeekIndicator(
+                visible = showRewindIndicator && dismissProgress < 0.05f,
+                isForward = false,
+                isLandscape = isLandscape,
+                backdrop = mediaBackdrop,
+                modifier = Modifier.align(Alignment.CenterStart)
+            )
+            DoubleTapSeekIndicator(
+                visible = showForwardIndicator && dismissProgress < 0.05f,
+                isForward = true,
+                isLandscape = isLandscape,
+                backdrop = mediaBackdrop,
+                modifier = Modifier.align(Alignment.CenterEnd)
+            )
+
+            // Apple Liquid Glass Vertical Sliders (Brightness on left, Volume on right) & Seek Scrub HUD
+            BrightnessHud(
+                visible = showBrightnessHud && dismissProgress < 0.05f,
+                brightness = currentBrightness,
+                backdrop = mediaBackdrop,
+                modifier = Modifier
+                    .align(Alignment.CenterStart)
+                    .padding(start = if (isLandscape) 48.dp else 24.dp)
+            )
+
+            VolumeHud(
+                visible = showVolumeHud && dismissProgress < 0.05f,
+                volumeFraction = currentVolumeFraction,
+                backdrop = mediaBackdrop,
+                modifier = Modifier
+                    .align(Alignment.CenterEnd)
+                    .padding(end = if (isLandscape) 48.dp else 24.dp)
+            )
+
+            SeekScrubHud(
+                visible = showSeekHud && dismissProgress < 0.05f,
+                targetSeekMs = targetSeekMs,
+                initialSeekMs = seekInitialMs,
+                totalDurationMs = totalDurationMs,
+                backdrop = mediaBackdrop,
+                modifier = Modifier.align(Alignment.Center)
+            )
+
+            // Center Play/Pause Floating Action with Apple Liquid Glass (Video only, outside layerBackdrop)
+            AnimatedVisibility(
+                visible = !isAudio && !isImage && (showControls || !isPlaying || isCompleted) && dismissProgress < 0.05f,
+                enter = fadeIn(),
+                exit = fadeOut(),
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .graphicsLayer {
+                        scaleX = videoScale
+                        scaleY = videoScale
+                        translationX = videoOffsetX
+                        translationY = videoOffsetY
+                        alpha = controlsAlpha
                     }
+            ) {
+                val isPlayIcon = !isPlaying && !isCompleted
+                LiquidRoundButton(
+                    onClick = { togglePlayPause() },
+                    backdrop = mediaBackdrop,
+                    size = 72.dp,
+                    showBorder = false
+                ) {
+                    Icon(
+                        imageVector = when {
+                            isCompleted -> CupertinoIcons.Outlined.ClockArrowCirclepath
+                            isPlaying -> CupertinoIcons.Filled.Pause
+                            else -> CupertinoIcons.Filled.Play
+                        },
+                        contentDescription = "Play/Pause",
+                        modifier = Modifier
+                            .size(36.dp)
+                            .then(if (isPlayIcon) Modifier.padding(start = 2.5.dp) else Modifier)
+                    )
                 }
-
-                // Double Tap ±5s Indicators
-                DoubleTapSeekIndicator(
-                    visible = showRewindIndicator,
-                    isForward = false,
-                    isLandscape = isLandscape,
-                    modifier = Modifier.align(Alignment.CenterStart)
-                )
-                DoubleTapSeekIndicator(
-                    visible = showForwardIndicator,
-                    isForward = true,
-                    isLandscape = isLandscape,
-                    modifier = Modifier.align(Alignment.CenterEnd)
-                )
-
-                // HUD Overlays (Brightness, Volume, Seek)
-                BrightnessHud(
-                    visible = showBrightnessHud,
-                    brightness = currentBrightness,
-                    modifier = Modifier.align(Alignment.Center)
-                )
-                VolumeHud(
-                    visible = showVolumeHud,
-                    volumeFraction = currentVolumeFraction,
-                    modifier = Modifier.align(Alignment.Center)
-                )
-                SeekScrubHud(
-                    visible = showSeekHud,
-                    targetSeekMs = targetSeekMs,
-                    initialSeekMs = seekInitialMs,
-                    totalDurationMs = totalDurationMs,
-                    modifier = Modifier.align(Alignment.Center)
-                )
             }
 
             // Top Header Bar
@@ -636,7 +726,7 @@ fun InAppVideoPlayerModal(
                     },
                     onOpenEditor = if (!isAudio && !isImage) {
                         {
-                            videoViewRef?.pause()
+                            try { mediaPlayer.pause() } catch (_: Exception) {}
                             isPlaying = false
                             showVideoEditorModal = true
                         }
@@ -654,14 +744,14 @@ fun InAppVideoPlayerModal(
                     .graphicsLayer { alpha = controlsAlpha }
             ) {
                 PlayerBottomBar(
+                    backdrop = mediaBackdrop,
                     currentPositionMs = currentPositionMs,
                     totalDurationMs = totalDurationMs,
                     isAudio = isAudio,
                     isMuted = isMuted,
                     isLandscape = isLandscape,
                     onSeek = { targetMs ->
-                        currentPositionMs = targetMs
-                        videoViewRef?.seekTo(targetMs)
+                        performSeek(targetMs)
                     },
                     onToggleMute = { isMuted = !isMuted },
                     onToggleOrientation = {
@@ -711,7 +801,7 @@ fun InAppVideoPlayerModal(
                     downloadHelper = downloadHelper,
                     onDismiss = {
                         showVideoEditorModal = false
-                        videoViewRef?.start()
+                        try { mediaPlayer.start() } catch (_: Exception) {}
                         isPlaying = true
                     },
                     onExportSuccess = {
@@ -868,3 +958,26 @@ private fun Context.findActivity(): Activity? {
     }
     return null
 }
+
+/**
+ * Scales TextureView transform matrix to maintain correct aspect ratio (fit center).
+ */
+private fun updateTextureAspect(
+    textureView: TextureView,
+    videoWidth: Int,
+    videoHeight: Int
+) {
+    if (videoWidth <= 0 || videoHeight <= 0 || textureView.width <= 0 || textureView.height <= 0) return
+    val viewAspect = textureView.width.toFloat() / textureView.height.toFloat()
+    val videoAspect = videoWidth.toFloat() / videoHeight.toFloat()
+    val matrix = Matrix()
+    if (viewAspect > videoAspect) {
+        val scale = videoAspect / viewAspect
+        matrix.setScale(scale, 1f, textureView.width / 2f, textureView.height / 2f)
+    } else {
+        val scale = viewAspect / videoAspect
+        matrix.setScale(1f, scale, textureView.width / 2f, textureView.height / 2f)
+    }
+    textureView.setTransform(matrix)
+}
+

@@ -5,7 +5,9 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
@@ -18,12 +20,15 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.lerp
+import com.buwin.tiktokvideodownload.ui.theme.LocalIsDark
 import com.kyant.backdrop.Backdrop
 import com.kyant.backdrop.drawBackdrop
 import com.kyant.backdrop.effects.blur
 import com.kyant.backdrop.effects.lens
 import com.kyant.backdrop.effects.vibrancy
 import com.kyant.backdrop.highlight.Highlight
+import com.kyant.backdrop.shadow.InnerShadow
+import com.kyant.backdrop.shadow.Shadow
 import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.hypot
@@ -32,7 +37,11 @@ import kotlin.math.sqrt
 import kotlin.math.tanh
 
 /**
- * Circular / Round button with Liquid Glass refraction, blur, and tactile deformation.
+ * Circular / Round button with Liquid Glass refraction, blur, specular highlight, and tactile deformation.
+ * Supports dynamic light/dark mode identical to LiquidBottomTabs:
+ * - Dark mode: rich smoky dark glass (0xFF18181B @ 45%)
+ * - Light mode: pure frosted white glass (Color.White @ 28%)
+ * Effects: 8dp blur, 24dp lens refraction, dynamic specular highlight, ambient drop shadow & inner shadow.
  */
 @Composable
 fun LiquidRoundButton(
@@ -43,10 +52,21 @@ fun LiquidRoundButton(
     shape: Shape = CircleShape,
     isInteractive: Boolean = true,
     showBorder: Boolean = false,
+    isDark: Boolean = LocalIsDark.current,
     tint: Color = Color.Unspecified,
-    surfaceColor: Color = Color.White.copy(alpha = 0.25f),
+    surfaceColor: Color = Color.Unspecified,
     content: @Composable () -> Unit
 ) {
+    val isLightTheme = !isDark
+    val containerColor = if (surfaceColor.isSpecified) {
+        surfaceColor
+    } else {
+        if (isLightTheme) Color.White.copy(alpha = 0.28f)
+        else Color(0xFF505056).copy(alpha = 0.55f)
+    }
+
+    val contentColor = if (isDark) Color.White else Color(0xFF1C1C1E)
+
     val animationScope = rememberCoroutineScope()
     val interactiveHighlight = remember(animationScope) {
         InteractiveHighlight(animationScope = animationScope)
@@ -60,10 +80,28 @@ fun LiquidRoundButton(
                 shape = { shape },
                 effects = {
                     vibrancy()
-                    blur(3f.dp.toPx())
-                    lens(12f.dp.toPx(), 24f.dp.toPx())
+                    blur(8f.dp.toPx())
+                    lens(24f.dp.toPx(), 24f.dp.toPx())
                 },
-                highlight = if (showBorder) { { Highlight.Plain } } else null,
+                highlight = {
+                    if (showBorder) {
+                        Highlight.Plain
+                    } else {
+                        Highlight.Default.copy(alpha = if (isLightTheme) 0.55f else 0.35f)
+                    }
+                },
+                shadow = {
+                    Shadow(
+                        radius = 8f.dp,
+                        color = if (isLightTheme) Color.Black.copy(alpha = 0.08f) else Color.Black.copy(alpha = 0.35f)
+                    )
+                },
+                innerShadow = {
+                    InnerShadow(
+                        radius = 6f.dp,
+                        alpha = if (isLightTheme) 0.08f else 0.18f
+                    )
+                },
                 layerBlock = if (isInteractive) {
                     {
                         val progress = interactiveHighlight.pressProgress
@@ -72,7 +110,6 @@ fun LiquidRoundButton(
                         val offsetAngle = atan2(offset.y, offset.x)
 
                         // Apple Fluid Interface: Damped rubber-band displacement
-                        // Proportional to button dimensions, strictly bounded so it never breaches safe area or screen edges
                         val maxDisplacement = (this.size.minDimension * 0.18f).coerceAtMost(8f.dp.toPx())
                         val dampingDistance = (this.size.minDimension * 1.5f).coerceAtLeast(30f.dp.toPx())
                         val dampedDistance = maxDisplacement * tanh(dragDist / dampingDistance)
@@ -81,7 +118,6 @@ fun LiquidRoundButton(
                         translationY = dampedDistance * sin(offsetAngle)
 
                         // Apple Liquid Glass tactile deformation: Volume-preserving squash & stretch
-                        // As it elongates along the drag vector, it compresses perpendicularly like a fluid droplet
                         val maxStretch = 0.16f
                         val stretchFactor = maxStretch * tanh(dragDist / dampingDistance)
                         val scaleAlong = 1f + stretchFactor
@@ -101,9 +137,7 @@ fun LiquidRoundButton(
                         drawRect(tint, blendMode = BlendMode.Hue)
                         drawRect(tint.copy(alpha = 0.75f))
                     }
-                    if (surfaceColor.isSpecified) {
-                        drawRect(surfaceColor)
-                    }
+                    drawRect(containerColor)
                 }
             )
             .clickable(
@@ -121,6 +155,8 @@ fun LiquidRoundButton(
             ),
         contentAlignment = Alignment.Center
     ) {
-        content()
+        CompositionLocalProvider(LocalContentColor provides contentColor) {
+            content()
+        }
     }
 }

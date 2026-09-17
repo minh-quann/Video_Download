@@ -1,7 +1,6 @@
 package com.buwin.tiktokvideodownload.ui.components.player
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -13,14 +12,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Fullscreen
-import androidx.compose.material.icons.filled.FullscreenExit
-import androidx.compose.material.icons.filled.VolumeOff
-import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -30,19 +22,28 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.buwin.tiktokvideodownload.ui.components.liquid.LiquidRoundButton
+import com.kyant.backdrop.Backdrop
+import io.github.alexzhirkevich.cupertino.icons.CupertinoIcons
+import io.github.alexzhirkevich.cupertino.icons.filled.SpeakerSlash
+import io.github.alexzhirkevich.cupertino.icons.filled.SpeakerWave2
+import io.github.alexzhirkevich.cupertino.icons.outlined.ArrowDownRightAndArrowUpLeft
+import io.github.alexzhirkevich.cupertino.icons.outlined.ArrowUpLeftAndArrowDownRight
+
+import com.buwin.tiktokvideodownload.ui.theme.LocalIsDark
 
 /**
- * Bottom controls bar with sleek minimalist scrubber, playback time, mute toggle,
- * and landscape rotation orientation switch.
+ * Bottom playback control bar designed to authentic Apple iOS AVPlayer / Photos standards.
+ * Features a pure-white dynamic scrubber, tabular time indicator, and shared Apple Liquid Glass action buttons.
  */
 @Composable
 fun PlayerBottomBar(
+    backdrop: Backdrop,
     currentPositionMs: Int,
     totalDurationMs: Int,
     isAudio: Boolean,
@@ -51,8 +52,10 @@ fun PlayerBottomBar(
     onSeek: (Int) -> Unit,
     onToggleMute: () -> Unit,
     onToggleOrientation: () -> Unit,
+    isDark: Boolean = LocalIsDark.current,
     modifier: Modifier = Modifier
 ) {
+    val contentColor = if (isDark) Color.White else Color(0xFF1C1C1E)
     var isDraggingSlider by remember { mutableStateOf(false) }
     var scrubbedPositionMs by remember { mutableIntStateOf(0) }
 
@@ -63,16 +66,21 @@ fun PlayerBottomBar(
                 Brush.verticalGradient(
                     colors = listOf(
                         Color.Transparent,
+                        Color.Black.copy(alpha = 0.20f),
+                        Color.Black.copy(alpha = 0.60f),
                         Color.Black.copy(alpha = 0.88f)
                     )
                 )
             )
             .navigationBarsPadding()
             .displayCutoutPadding()
-            .padding(horizontal = if (isLandscape) 32.dp else 20.dp, vertical = 14.dp)
+            .padding(
+                horizontal = if (isLandscape) 32.dp else 20.dp,
+                vertical = 12.dp
+            )
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
-            // Sleek Minimalist Video Scrubber (Samsung / Apple / YouTube style)
+            // Apple AVPlayer Scrubber (Pure White active, frosted white inactive)
             SleekVideoScrubber(
                 positionMs = if (isDraggingSlider) scrubbedPositionMs else currentPositionMs,
                 durationMs = totalDurationMs,
@@ -81,10 +89,12 @@ fun PlayerBottomBar(
                     scrubbedPositionMs = scrubPos
                 },
                 onSeek = { targetMs ->
+                    scrubbedPositionMs = targetMs
                     isDraggingSlider = false
                     onSeek(targetMs)
                 },
-                activeColor = MaterialTheme.colorScheme.primary,
+                activeColor = Color.White,
+                inactiveColor = Color.White.copy(alpha = 0.24f),
                 modifier = Modifier.fillMaxWidth()
             )
 
@@ -96,67 +106,68 @@ fun PlayerBottomBar(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Time position / total duration
+                // Time position / total duration (Apple SF Pro typography)
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(5.dp)
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     Text(
                         text = formatDuration(if (isDraggingSlider) scrubbedPositionMs else currentPositionMs),
                         color = Color.White,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.SemiBold
+                        fontSize = 12.5.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        letterSpacing = 0.2.sp
                     )
                     Text(
                         text = "/",
-                        color = Color.White.copy(alpha = 0.45f),
+                        color = Color.White.copy(alpha = 0.40f),
                         fontSize = 12.sp
                     )
                     Text(
                         text = formatDuration(totalDurationMs),
-                        color = Color.LightGray,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Normal
+                        color = Color.White.copy(alpha = 0.65f),
+                        fontSize = 12.5.sp,
+                        fontWeight = FontWeight.Normal,
+                        letterSpacing = 0.2.sp
                     )
                 }
 
-                // Action icons: Mute & Rotate (Fullscreen)
+                // Apple SF Symbol Action Icons: Mute & Orientation Fullscreen
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    // Mute Button in Bottom Bar
-                    Box(
-                        modifier = Modifier
-                            .size(34.dp)
-                            .clip(CircleShape)
-                            .background(Color.White.copy(alpha = 0.18f))
-                            .clickable { onToggleMute() },
-                        contentAlignment = Alignment.Center
+                    // Mute / Speaker Toggle Disc (Shared LiquidRoundButton with Kyant backdrop blur and no border)
+                    LiquidRoundButton(
+                        onClick = onToggleMute,
+                        backdrop = backdrop,
+                        size = 36.dp,
+                        showBorder = false,
+                        isDark = isDark
                     ) {
                         Icon(
-                            imageVector = if (isMuted) Icons.Filled.VolumeOff else Icons.Filled.VolumeUp,
-                            contentDescription = if (isMuted) "Unmute" else "Mute",
-                            tint = if (isMuted) Color(0xFFEF4444) else Color.White,
+                            imageVector = if (isMuted) CupertinoIcons.Filled.SpeakerSlash else CupertinoIcons.Filled.SpeakerWave2,
+                            contentDescription = if (isMuted) "Bật âm thanh" else "Tắt tiếng",
+                            tint = if (isMuted) Color(0xFFFF453A) else contentColor,
                             modifier = Modifier.size(17.dp)
                         )
                     }
 
-                    // Rotate / Fullscreen Orientation Toggle (for video only)
+                    // Rotate / Fullscreen Orientation Toggle Disc (Video only)
                     if (!isAudio) {
-                        Box(
-                            modifier = Modifier
-                                .size(34.dp)
-                                .clip(CircleShape)
-                                .background(Color.White.copy(alpha = 0.18f))
-                                .clickable { onToggleOrientation() },
-                            contentAlignment = Alignment.Center
+                        LiquidRoundButton(
+                            onClick = onToggleOrientation,
+                            backdrop = backdrop,
+                            size = 36.dp,
+                            showBorder = false,
+                            isDark = isDark
                         ) {
                             Icon(
-                                imageVector = if (isLandscape) Icons.Filled.FullscreenExit else Icons.Filled.Fullscreen,
-                                contentDescription = if (isLandscape) "Exit Fullscreen" else "Fullscreen",
-                                tint = Color.White,
-                                modifier = Modifier.size(19.dp)
+                                imageVector = if (isLandscape) CupertinoIcons.Outlined.ArrowDownRightAndArrowUpLeft
+                                       else CupertinoIcons.Outlined.ArrowUpLeftAndArrowDownRight,
+                                contentDescription = if (isLandscape) "Thu nhỏ" else "Toàn màn hình",
+                                tint = contentColor,
+                                modifier = Modifier.size(17.dp)
                             )
                         }
                     }

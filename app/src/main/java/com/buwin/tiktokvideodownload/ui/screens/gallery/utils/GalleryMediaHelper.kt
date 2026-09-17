@@ -94,7 +94,7 @@ object GalleryMediaHelper {
 
             result.add(
                 GalleryMediaItem(
-                    id = record.id.ifEmpty { "hist_${record.downloadId}" },
+                    id = "hist_${record.downloadId}_${record.id.ifEmpty { record.timestamp.toString() }}",
                     title = record.title.ifEmpty { "Video tải về" },
                     uri = uri,
                     isVideo = true,
@@ -241,7 +241,7 @@ object GalleryMediaHelper {
                                 val duration = if (isVid) extractVideoDuration(context, fileUri) else 0L
                                 result.add(
                                     GalleryMediaItem(
-                                        id = "file_${file.lastModified()}",
+                                        id = "file_${file.name}_${file.lastModified()}",
                                         title = file.nameWithoutExtension,
                                         uri = fileUri,
                                         isVideo = isVid,
@@ -260,6 +260,19 @@ object GalleryMediaHelper {
             }
         } catch (_: Throwable) {}
 
-        return result.sortedByDescending { it.timestamp }
+        // Guarantee strict ID uniqueness across all combined sources to prevent LazyGrid duplicate key crashes
+        val sorted = result.sortedByDescending { it.timestamp }
+        val finalResult = ArrayList<GalleryMediaItem>(sorted.size)
+        val seenIds = HashSet<String>(sorted.size)
+        for (item in sorted) {
+            var uniqueId = item.id
+            var counter = 1
+            while (!seenIds.add(uniqueId)) {
+                uniqueId = "${item.id}_$counter"
+                counter++
+            }
+            finalResult.add(if (uniqueId == item.id) item else item.copy(id = uniqueId))
+        }
+        return finalResult
     }
 }

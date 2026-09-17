@@ -26,7 +26,7 @@ fun HomeThemeButton(
         onClick = onToggle,
         backdrop = backdrop,
         size = 40.dp,
-        surfaceColor = if (isDark) Color.White.copy(alpha = 0.15f) else Color.White.copy(alpha = 0.70f),
+        isDark = isDark,
         modifier = modifier
     ) {
         Icon(

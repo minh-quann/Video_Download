@@ -20,6 +20,8 @@ import com.kyant.backdrop.Backdrop
 import io.github.alexzhirkevich.cupertino.icons.CupertinoIcons
 import io.github.alexzhirkevich.cupertino.icons.outlined.Xmark
 
+import com.buwin.tiktokvideodownload.ui.theme.LocalIsDark
+
 /**
  * Editor top bar using Liquid Glass components.
  * Close = LiquidRoundButton (non-interactive), Export = LiquidButton (non-interactive).
@@ -32,8 +34,11 @@ fun EditorTopBar(
     backdrop: Backdrop,
     onClose: () -> Unit,
     onExport: () -> Unit,
+    isDark: Boolean = LocalIsDark.current,
     modifier: Modifier = Modifier
 ) {
+    val contentColor = if (isDark) Color.White else Color(0xFF1C1C1E)
+
     Row(
         modifier = modifier
             .fillMaxWidth()
@@ -47,19 +52,19 @@ fun EditorTopBar(
             backdrop = backdrop,
             size = 38.dp,
             isInteractive = false,
-            surfaceColor = Color.White.copy(alpha = 0.15f)
+            isDark = isDark
         ) {
             Icon(
                 imageVector = CupertinoIcons.Outlined.Xmark,
                 contentDescription = "Hủy",
-                tint = Color.White,
+                tint = contentColor,
                 modifier = Modifier.size(18.dp)
             )
         }
 
         Text(
             text = "Chỉnh sửa video",
-            color = Color.White,
+            color = contentColor,
             fontSize = 16.sp,
             fontWeight = FontWeight.Bold
         )

@@ -149,15 +149,13 @@ fun HistoryScreen(
             },
             isDark = isDark,
             actions = {
-                val buttonBgColor = if (isDark) Color.White.copy(alpha = 0.18f) else Color.White.copy(alpha = 0.80f)
-
                 // Cloud Sync Button when logged in
                 if (uiState.currentUser != null) {
                     LiquidRoundButton(
                         onClick = { viewModel.syncWithCloud(showToast = true) },
                         backdrop = contentBackdrop,
                         size = 40.dp,
-                        surfaceColor = buttonBgColor
+                        isDark = isDark
                     ) {
                         if (uiState.isSyncing) {
                             CircularProgressIndicator(
@@ -181,7 +179,7 @@ fun HistoryScreen(
                     onClick = { viewModel.openDownloadsFolder() },
                     backdrop = contentBackdrop,
                     size = 40.dp,
-                    surfaceColor = buttonBgColor
+                    isDark = isDark
                 ) {
                     Icon(
                         imageVector = CupertinoIcons.Filled.Folder,
@@ -197,7 +195,7 @@ fun HistoryScreen(
                         onClick = { showClearConfirm = true },
                         backdrop = contentBackdrop,
                         size = 40.dp,
-                        surfaceColor = buttonBgColor
+                        isDark = isDark
                     ) {
                         Icon(
                             painter = painterResource(id = R.drawable.ic_trash_minimal),

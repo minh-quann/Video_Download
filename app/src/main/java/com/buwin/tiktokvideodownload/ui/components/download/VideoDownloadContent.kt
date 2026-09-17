@@ -63,6 +63,8 @@ fun VideoDownloadContent(
 
                 HeroDownloadButton(
                     option = primaryOption,
+                    cardBackground = cardBackground,
+                    cardBorderColor = cardBorderColor,
                     onClick = { onDownloadOption(primaryOption) }
                 )
             }

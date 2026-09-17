@@ -32,6 +32,11 @@ import io.github.alexzhirkevich.cupertino.icons.CupertinoIcons
 import io.github.alexzhirkevich.cupertino.icons.outlined.ArrowTurnUpLeft
 import io.github.alexzhirkevich.cupertino.icons.outlined.ArrowTurnUpRight
 
+import com.buwin.tiktokvideodownload.ui.theme.LocalIsDark
+import com.kyant.backdrop.highlight.Highlight
+import com.kyant.backdrop.shadow.InnerShadow
+import com.kyant.backdrop.shadow.Shadow
+
 /**
  * Image editor top header bar featuring Cancel, Undo/Redo capsule, and Done button.
  * Uses Liquid Glass backdrops and haptic feedback.
@@ -44,9 +49,14 @@ fun ImageEditorTopBar(
     onDismiss: () -> Unit,
     onUndo: () -> Unit,
     onSave: () -> Unit,
+    isDark: Boolean = LocalIsDark.current,
     modifier: Modifier = Modifier
 ) {
     val haptic = LocalHapticFeedback.current
+    val isLightTheme = !isDark
+    val containerColor = if (isLightTheme) Color.White.copy(alpha = 0.28f)
+    else Color(0xFF505056).copy(alpha = 0.55f)
+    val contentColor = if (isDark) Color.White else Color(0xFF1C1C1E)
 
     Row(
         modifier = modifier
@@ -61,12 +71,12 @@ fun ImageEditorTopBar(
             onClick = onDismiss,
             backdrop = backdrop,
             showBorder = false,
-            surfaceColor = Color.White.copy(alpha = 0.16f),
+            isDark = isDark,
             modifier = Modifier.height(36.dp)
         ) {
             Text(
-                text = "Cancel",
-                color = Color.White,
+                text = "Hủy",
+                color = contentColor,
                 fontSize = 15.sp,
                 fontWeight = FontWeight.Medium,
                 modifier = Modifier.padding(horizontal = 14.dp)
@@ -82,12 +92,26 @@ fun ImageEditorTopBar(
                     shape = { Capsule() },
                     effects = {
                         vibrancy()
-                        blur(3f.dp.toPx())
-                        lens(12f.dp.toPx(), 24f.dp.toPx())
+                        blur(8f.dp.toPx())
+                        lens(24f.dp.toPx(), 24f.dp.toPx())
                     },
-                    highlight = null,
+                    highlight = {
+                        Highlight.Default.copy(alpha = if (isLightTheme) 0.55f else 0.35f)
+                    },
+                    shadow = {
+                        Shadow(
+                            radius = 8f.dp,
+                            color = if (isLightTheme) Color.Black.copy(alpha = 0.08f) else Color.Black.copy(alpha = 0.35f)
+                        )
+                    },
+                    innerShadow = {
+                        InnerShadow(
+                            radius = 6f.dp,
+                            alpha = if (isLightTheme) 0.08f else 0.18f
+                        )
+                    },
                     onDrawSurface = {
-                        drawRect(Color.White.copy(alpha = 0.20f))
+                        drawRect(containerColor)
                     }
                 )
                 .padding(horizontal = 14.dp),
@@ -100,7 +124,7 @@ fun ImageEditorTopBar(
                 Icon(
                     imageVector = CupertinoIcons.Outlined.ArrowTurnUpLeft,
                     contentDescription = "Undo",
-                    tint = if (hasChanges) Color.White else Color(0xFF636366),
+                    tint = if (hasChanges) contentColor else Color(0xFF636366),
                     modifier = Modifier
                         .size(18.dp)
                         .clickable(
@@ -126,7 +150,8 @@ fun ImageEditorTopBar(
             backdrop = backdrop,
             isInteractive = hasChanges && !isSaving,
             showBorder = false,
-            surfaceColor = if (hasChanges) Color(0xFFFFD60A).copy(alpha = 0.32f) else Color.White.copy(alpha = 0.08f),
+            isDark = isDark,
+            surfaceColor = if (hasChanges) Color(0xFFFFD60A).copy(alpha = 0.35f) else Color.Unspecified,
             modifier = Modifier.height(36.dp)
         ) {
             if (isSaving) {
@@ -137,8 +162,8 @@ fun ImageEditorTopBar(
                 )
             } else {
                 Text(
-                    text = "Done",
-                    color = if (hasChanges) Color(0xFFFFD60A) else Color(0xFF636366),
+                    text = "Xong",
+                    color = if (hasChanges) Color(0xFFFFD60A) else if (isDark) Color(0xFF636366) else Color(0xFF8E8E93),
                     fontSize = 15.sp,
                     fontWeight = FontWeight.SemiBold,
                     modifier = Modifier.padding(horizontal = 14.dp)

@@ -199,7 +199,7 @@ fun ThemeSettingsScreen(
                     backdrop = contentBackdrop,
                     size = 40.dp,
                     showBorder = false,
-                    surfaceColor = if (isDark) Color.White.copy(alpha = 0.18f) else Color.White.copy(alpha = 0.65f)
+                    isDark = isDark
                 ) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.ArrowBack,

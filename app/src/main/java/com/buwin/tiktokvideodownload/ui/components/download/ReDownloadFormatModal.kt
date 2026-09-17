@@ -421,6 +421,8 @@ fun ReDownloadFormatModal(
 
                 HeroDownloadButton(
                     option = primaryOption,
+                    cardBackground = if (isDark) Color(0xFF18181B) else Color(0xFFFFFFFF),
+                    cardBorderColor = borderColor,
                     onClick = {
                         dismissWithAnimation {
                             onDownloadOption(primaryOption)
