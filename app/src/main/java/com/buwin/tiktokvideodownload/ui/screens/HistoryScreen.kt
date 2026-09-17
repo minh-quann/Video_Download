@@ -57,6 +57,7 @@ fun HistoryScreen(
     authManager: AuthManager,
     onPlayRecord: (DownloadRecord) -> Unit,
     modifier: Modifier = Modifier,
+    isVisible: Boolean = true,
     viewModel: HistoryViewModel = remember {
         HistoryViewModel(
             historyRepository = HistoryRepository(downloadHelper),
@@ -70,8 +71,10 @@ fun HistoryScreen(
     var showClearConfirm by remember { mutableStateOf(false) }
 
     // Refresh history when screen becomes active
-    LaunchedEffect(Unit) {
-        viewModel.loadLocalHistory()
+    LaunchedEffect(isVisible) {
+        if (isVisible) {
+            viewModel.loadLocalHistory()
+        }
     }
 
     // Card styling matching iOS Inset Grouped / Liquid design

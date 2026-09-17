@@ -19,6 +19,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.isSpecified
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.fastCoerceAtMost
 import androidx.compose.ui.util.lerp
@@ -39,33 +40,66 @@ import kotlin.math.sin
 import kotlin.math.tanh
 
 /**
+ * Visual styling variants matching the official Kyant0 AndroidLiquidGlass library:
+ * - [Transparent]: Pure glass refraction and specular highlight without surface overlay.
+ * - [Surface]: Frosted glass with adaptive translucent surface tint (or custom surfaceColor).
+ * - [Tinted]: Rich color saturation wash using Hue blending (e.g. Apple blue, orange, yellow).
+ */
+enum class LiquidButtonVariant {
+    Transparent,
+    Surface,
+    Tinted
+}
+
+/**
  * Pill / Capsule button with Liquid Glass refraction, blur, specular highlight, and tactile deformation.
- * Supports dynamic light/dark mode identical to LiquidBottomTabs:
- * - Dark mode: rich smoky dark glass (0xFF18181B @ 45%)
- * - Light mode: pure frosted white glass (Color.White @ 28%)
- * Effects: 8dp blur, 24dp lens refraction, dynamic specular highlight, ambient drop shadow & inner shadow.
+ * Supports all 3 variants from the original Kyant0 AndroidLiquidGlass library:
+ * - Transparent: pure glass refraction without surface overlay
+ * - Surface: frosted translucent surface with light/dark adaptive tint
+ * - Tinted: Hue-blended vibrant color glass
  */
 @Composable
 fun LiquidButton(
     onClick: () -> Unit,
     backdrop: Backdrop,
     modifier: Modifier = Modifier,
+    variant: LiquidButtonVariant = LiquidButtonVariant.Surface,
+    tint: Color = Color.Unspecified,
+    surfaceColor: Color = Color.Unspecified,
+    contentColor: Color = Color.Unspecified,
     isInteractive: Boolean = true,
     showBorder: Boolean = false,
     isDark: Boolean = LocalIsDark.current,
-    tint: Color = Color.Unspecified,
-    surfaceColor: Color = Color.Unspecified,
+    shape: Shape = Capsule(),
+    blurRadius: Dp = 4.dp,
+    lensHeight: Dp = 12.dp,
+    lensWidth: Dp = 24.dp,
     content: @Composable RowScope.() -> Unit
 ) {
+    // Resolve variant safely inside function body to avoid uninitialized default-arg forward reference
+    val resolvedVariant = if (tint.isSpecified && variant == LiquidButtonVariant.Surface) {
+        LiquidButtonVariant.Tinted
+    } else {
+        variant
+    }
+
     val isLightTheme = !isDark
     val containerColor = if (surfaceColor.isSpecified) {
         surfaceColor
     } else {
-        if (isLightTheme) Color.White.copy(alpha = 0.28f)
+        if (isLightTheme) Color(0xFFFAFAFA).copy(alpha = 0.35f)
         else Color(0xFF505056).copy(alpha = 0.55f)
     }
 
-    val contentColor = if (isDark) Color.White else Color.Black
+    val effectiveContentColor = if (contentColor.isSpecified) {
+        contentColor
+    } else {
+        when (resolvedVariant) {
+            LiquidButtonVariant.Tinted -> Color.White
+            LiquidButtonVariant.Transparent,
+            LiquidButtonVariant.Surface -> if (isDark) Color.White else Color.Black
+        }
+    }
 
     val animationScope = rememberCoroutineScope()
     val interactiveHighlight = remember(animationScope) {
@@ -78,11 +112,11 @@ fun LiquidButton(
         modifier
             .drawBackdrop(
                 backdrop = backdrop,
-                shape = { Capsule() },
+                shape = { shape },
                 effects = {
                     vibrancy()
-                    blur(8f.dp.toPx())
-                    lens(24f.dp.toPx(), 24f.dp.toPx())
+                    blur(blurRadius.toPx())
+                    lens(lensHeight.toPx(), lensWidth.toPx())
                 },
                 highlight = {
                     if (showBorder) {
@@ -132,11 +166,22 @@ fun LiquidButton(
                     null
                 },
                 onDrawSurface = {
-                    if (tint.isSpecified) {
-                        drawRect(tint, blendMode = BlendMode.Hue)
-                        drawRect(tint.copy(alpha = 0.75f))
+                    when (resolvedVariant) {
+                        LiquidButtonVariant.Transparent -> {
+                            // Pure transparent liquid glass - no surface color drawn
+                        }
+                        LiquidButtonVariant.Surface -> {
+                            drawRect(containerColor)
+                        }
+                        LiquidButtonVariant.Tinted -> {
+                            val effectiveTint = if (tint.isSpecified) tint else Color(0xFF007AFF)
+                            drawRect(effectiveTint, blendMode = BlendMode.Hue)
+                            drawRect(effectiveTint.copy(alpha = 0.75f))
+                            if (surfaceColor.isSpecified) {
+                                drawRect(surfaceColor)
+                            }
+                        }
                     }
-                    drawRect(containerColor)
                 }
             )
             .clickable(
@@ -159,8 +204,100 @@ fun LiquidButton(
         horizontalArrangement = Arrangement.spacedBy(8f.dp, Alignment.CenterHorizontally),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        CompositionLocalProvider(LocalContentColor provides contentColor) {
+        CompositionLocalProvider(LocalContentColor provides effectiveContentColor) {
             content()
         }
     }
 }
+
+/**
+ * Convenience builder for a 100% Transparent Liquid Button with pure refraction and specular highlight.
+ */
+@Composable
+fun TransparentLiquidButton(
+    onClick: () -> Unit,
+    backdrop: Backdrop,
+    modifier: Modifier = Modifier,
+    contentColor: Color = Color.Unspecified,
+    isInteractive: Boolean = true,
+    showBorder: Boolean = false,
+    isDark: Boolean = LocalIsDark.current,
+    shape: Shape = Capsule(),
+    content: @Composable RowScope.() -> Unit
+) {
+    LiquidButton(
+        onClick = onClick,
+        backdrop = backdrop,
+        modifier = modifier,
+        variant = LiquidButtonVariant.Transparent,
+        contentColor = contentColor,
+        isInteractive = isInteractive,
+        showBorder = showBorder,
+        isDark = isDark,
+        shape = shape,
+        content = content
+    )
+}
+
+/**
+ * Convenience builder for a Surface Frosted Liquid Button.
+ */
+@Composable
+fun SurfaceLiquidButton(
+    onClick: () -> Unit,
+    backdrop: Backdrop,
+    modifier: Modifier = Modifier,
+    surfaceColor: Color = Color.Unspecified,
+    contentColor: Color = Color.Unspecified,
+    isInteractive: Boolean = true,
+    showBorder: Boolean = false,
+    isDark: Boolean = LocalIsDark.current,
+    shape: Shape = Capsule(),
+    content: @Composable RowScope.() -> Unit
+) {
+    LiquidButton(
+        onClick = onClick,
+        backdrop = backdrop,
+        modifier = modifier,
+        variant = LiquidButtonVariant.Surface,
+        surfaceColor = surfaceColor,
+        contentColor = contentColor,
+        isInteractive = isInteractive,
+        showBorder = showBorder,
+        isDark = isDark,
+        shape = shape,
+        content = content
+    )
+}
+
+/**
+ * Convenience builder for a Tinted Liquid Button (e.g., Apple blue, orange, green).
+ */
+@Composable
+fun TintedLiquidButton(
+    onClick: () -> Unit,
+    backdrop: Backdrop,
+    tint: Color,
+    modifier: Modifier = Modifier,
+    contentColor: Color = Color.White,
+    isInteractive: Boolean = true,
+    showBorder: Boolean = false,
+    isDark: Boolean = LocalIsDark.current,
+    shape: Shape = Capsule(),
+    content: @Composable RowScope.() -> Unit
+) {
+    LiquidButton(
+        onClick = onClick,
+        backdrop = backdrop,
+        modifier = modifier,
+        variant = LiquidButtonVariant.Tinted,
+        tint = tint,
+        contentColor = contentColor,
+        isInteractive = isInteractive,
+        showBorder = showBorder,
+        isDark = isDark,
+        shape = shape,
+        content = content
+    )
+}
+

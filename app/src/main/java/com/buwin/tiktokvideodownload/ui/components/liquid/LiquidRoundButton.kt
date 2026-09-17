@@ -38,34 +38,54 @@ import kotlin.math.tanh
 
 /**
  * Circular / Round button with Liquid Glass refraction, blur, specular highlight, and tactile deformation.
- * Supports dynamic light/dark mode identical to LiquidBottomTabs:
- * - Dark mode: rich smoky dark glass (0xFF18181B @ 45%)
- * - Light mode: pure frosted white glass (Color.White @ 28%)
- * Effects: 8dp blur, 24dp lens refraction, dynamic specular highlight, ambient drop shadow & inner shadow.
+ * Supports all 3 variants from the original Kyant0 AndroidLiquidGlass library:
+ * - Transparent: pure glass refraction without surface overlay
+ * - Surface: frosted translucent surface with light/dark adaptive tint
+ * - Tinted: Hue-blended vibrant color glass
  */
 @Composable
 fun LiquidRoundButton(
     onClick: () -> Unit,
     backdrop: Backdrop,
     modifier: Modifier = Modifier,
+    variant: LiquidButtonVariant = LiquidButtonVariant.Surface,
     size: Dp = 56.dp,
     shape: Shape = CircleShape,
+    tint: Color = Color.Unspecified,
+    surfaceColor: Color = Color.Unspecified,
+    contentColor: Color = Color.Unspecified,
     isInteractive: Boolean = true,
     showBorder: Boolean = false,
     isDark: Boolean = LocalIsDark.current,
-    tint: Color = Color.Unspecified,
-    surfaceColor: Color = Color.Unspecified,
+    blurRadius: Dp = 4.dp,
+    lensHeight: Dp = 16.dp,
+    lensWidth: Dp = 24.dp,
     content: @Composable () -> Unit
 ) {
+    // Resolve variant safely inside function body to avoid uninitialized default-arg forward reference
+    val resolvedVariant = if (tint.isSpecified && variant == LiquidButtonVariant.Surface) {
+        LiquidButtonVariant.Tinted
+    } else {
+        variant
+    }
+
     val isLightTheme = !isDark
     val containerColor = if (surfaceColor.isSpecified) {
         surfaceColor
     } else {
-        if (isLightTheme) Color.White.copy(alpha = 0.28f)
+        if (isLightTheme) Color(0xFFFAFAFA).copy(alpha = 0.35f)
         else Color(0xFF505056).copy(alpha = 0.55f)
     }
 
-    val contentColor = if (isDark) Color.White else Color.Black
+    val effectiveContentColor = if (contentColor.isSpecified) {
+        contentColor
+    } else {
+        when (resolvedVariant) {
+            LiquidButtonVariant.Tinted -> Color.White
+            LiquidButtonVariant.Transparent,
+            LiquidButtonVariant.Surface -> if (isDark) Color.White else Color.Black
+        }
+    }
 
     val animationScope = rememberCoroutineScope()
     val interactiveHighlight = remember(animationScope) {
@@ -80,8 +100,8 @@ fun LiquidRoundButton(
                 shape = { shape },
                 effects = {
                     vibrancy()
-                    blur(8f.dp.toPx())
-                    lens(24f.dp.toPx(), 24f.dp.toPx())
+                    blur(blurRadius.toPx())
+                    lens(lensHeight.toPx(), lensWidth.toPx())
                 },
                 highlight = {
                     if (showBorder) {
@@ -118,13 +138,16 @@ fun LiquidRoundButton(
                         translationY = dampedDistance * sin(offsetAngle)
 
                         // Apple Liquid Glass tactile deformation: Volume-preserving squash & stretch
-                        val maxStretch = 0.16f
-                        val stretchFactor = maxStretch * tanh(dragDist / dampingDistance)
-                        val scaleAlong = 1f + stretchFactor
-                        val scalePerp = 1f / sqrt(scaleAlong)
+                        val initialScale = 1f
+                        val pressedScale = 1f + (4f.dp.toPx() / this.size.height)
+                        val pressScale = lerp(initialScale, pressedScale, progress)
 
-                        // Subtle tactile pop on press
-                        val pressScale = lerp(1f, 1.04f, progress)
+                        val normalizedDist = (dragDist / dampingDistance).coerceIn(0f, 1f)
+                        val stretchFactor = 1f + 0.35f * normalizedDist
+                        val squashFactor = 1f / sqrt(stretchFactor)
+
+                        val scaleAlong = stretchFactor
+                        val scalePerp = squashFactor
 
                         val cos2 = cos(offsetAngle) * cos(offsetAngle)
                         val sin2 = sin(offsetAngle) * sin(offsetAngle)
@@ -133,11 +156,22 @@ fun LiquidRoundButton(
                     }
                 } else null,
                 onDrawSurface = {
-                    if (tint.isSpecified) {
-                        drawRect(tint, blendMode = BlendMode.Hue)
-                        drawRect(tint.copy(alpha = 0.75f))
+                    when (resolvedVariant) {
+                        LiquidButtonVariant.Transparent -> {
+                            // Pure transparent liquid glass - no surface color drawn
+                        }
+                        LiquidButtonVariant.Surface -> {
+                            drawRect(containerColor)
+                        }
+                        LiquidButtonVariant.Tinted -> {
+                            val effectiveTint = if (tint.isSpecified) tint else Color(0xFF007AFF)
+                            drawRect(effectiveTint, blendMode = BlendMode.Hue)
+                            drawRect(effectiveTint.copy(alpha = 0.75f))
+                            if (surfaceColor.isSpecified) {
+                                drawRect(surfaceColor)
+                            }
+                        }
                     }
-                    drawRect(containerColor)
                 }
             )
             .clickable(
@@ -155,8 +189,105 @@ fun LiquidRoundButton(
             ),
         contentAlignment = Alignment.Center
     ) {
-        CompositionLocalProvider(LocalContentColor provides contentColor) {
+        CompositionLocalProvider(LocalContentColor provides effectiveContentColor) {
             content()
         }
     }
+}
+
+/**
+ * Convenience builder for a 100% Transparent Liquid Round Button with pure refraction and specular highlight.
+ */
+@Composable
+fun TransparentLiquidRoundButton(
+    onClick: () -> Unit,
+    backdrop: Backdrop,
+    modifier: Modifier = Modifier,
+    size: Dp = 56.dp,
+    shape: Shape = CircleShape,
+    contentColor: Color = Color.Unspecified,
+    isInteractive: Boolean = true,
+    showBorder: Boolean = false,
+    isDark: Boolean = LocalIsDark.current,
+    content: @Composable () -> Unit
+) {
+    LiquidRoundButton(
+        onClick = onClick,
+        backdrop = backdrop,
+        modifier = modifier,
+        variant = LiquidButtonVariant.Transparent,
+        size = size,
+        shape = shape,
+        contentColor = contentColor,
+        isInteractive = isInteractive,
+        showBorder = showBorder,
+        isDark = isDark,
+        content = content
+    )
+}
+
+/**
+ * Convenience builder for a Surface Frosted Liquid Round Button.
+ */
+@Composable
+fun SurfaceLiquidRoundButton(
+    onClick: () -> Unit,
+    backdrop: Backdrop,
+    modifier: Modifier = Modifier,
+    size: Dp = 56.dp,
+    shape: Shape = CircleShape,
+    surfaceColor: Color = Color.Unspecified,
+    contentColor: Color = Color.Unspecified,
+    isInteractive: Boolean = true,
+    showBorder: Boolean = false,
+    isDark: Boolean = LocalIsDark.current,
+    content: @Composable () -> Unit
+) {
+    LiquidRoundButton(
+        onClick = onClick,
+        backdrop = backdrop,
+        modifier = modifier,
+        variant = LiquidButtonVariant.Surface,
+        size = size,
+        shape = shape,
+        surfaceColor = surfaceColor,
+        contentColor = contentColor,
+        isInteractive = isInteractive,
+        showBorder = showBorder,
+        isDark = isDark,
+        content = content
+    )
+}
+
+/**
+ * Convenience builder for a Tinted Liquid Round Button (e.g. Apple blue, orange, green).
+ */
+@Composable
+fun TintedLiquidRoundButton(
+    onClick: () -> Unit,
+    backdrop: Backdrop,
+    tint: Color,
+    modifier: Modifier = Modifier,
+    size: Dp = 56.dp,
+    shape: Shape = CircleShape,
+    contentColor: Color = Color.White,
+    isInteractive: Boolean = true,
+    showBorder: Boolean = false,
+    isDark: Boolean = LocalIsDark.current,
+    content: @Composable () -> Unit
+) {
+    LiquidRoundButton(
+        onClick = onClick,
+        backdrop = backdrop,
+        modifier = modifier,
+        variant = LiquidButtonVariant.Tinted,
+        tint = tint,
+        size = size,
+        shape = shape,
+        contentColor = contentColor,
+        isInteractive = isInteractive,
+        showBorder = showBorder,
+        isDark = isDark,
+        content = content
+    )
 }

@@ -16,6 +16,8 @@ import java.io.File
 
 object GalleryMediaHelper {
 
+    private val durationCache = java.util.concurrent.ConcurrentHashMap<String, Long>()
+
     /**
      * Extracts video duration in milliseconds via MediaMetadataRetriever.
      */
@@ -29,6 +31,67 @@ object GalleryMediaHelper {
         } catch (_: Throwable) {
             0L
         }
+    }
+
+    /**
+     * Efficiently extracts video duration by querying system MediaStore first (<0.2ms),
+     * and only falling back to MediaMetadataRetriever when unindexed, with thread-safe caching.
+     */
+    fun getVideoDurationFast(context: Context, uri: Uri): Long {
+        val key = uri.toString()
+        val cached = durationCache[key]
+        if (cached != null) return cached
+
+        if (uri.scheme == "content") {
+            try {
+                context.contentResolver.query(
+                    uri,
+                    arrayOf(MediaStore.Video.Media.DURATION),
+                    null,
+                    null,
+                    null
+                )?.use { cursor ->
+                    if (cursor.moveToFirst()) {
+                        val durIndex = cursor.getColumnIndex(MediaStore.Video.Media.DURATION)
+                        if (durIndex >= 0) {
+                            val dur = cursor.getLong(durIndex)
+                            if (dur > 0) {
+                                durationCache[key] = dur
+                                return dur
+                            }
+                        }
+                    }
+                }
+            } catch (_: Throwable) {}
+        } else if (uri.scheme == "file") {
+            val path = uri.path
+            if (!path.isNullOrEmpty()) {
+                try {
+                    context.contentResolver.query(
+                        MediaStore.Video.Media.EXTERNAL_CONTENT_URI,
+                        arrayOf(MediaStore.Video.Media.DURATION),
+                        "${MediaStore.Video.Media.DATA} = ?",
+                        arrayOf(path),
+                        null
+                    )?.use { cursor ->
+                        if (cursor.moveToFirst()) {
+                            val durIndex = cursor.getColumnIndex(MediaStore.Video.Media.DURATION)
+                            if (durIndex >= 0) {
+                                val dur = cursor.getLong(durIndex)
+                                if (dur > 0) {
+                                    durationCache[key] = dur
+                                    return dur
+                                }
+                            }
+                        }
+                    }
+                } catch (_: Throwable) {}
+            }
+        }
+
+        val extracted = extractVideoDuration(context, uri)
+        durationCache[key] = extracted
+        return extracted
     }
 
     /**
@@ -90,7 +153,7 @@ object GalleryMediaHelper {
             val isEdited = record.title.contains("edited", ignoreCase = true) ||
                     record.filePath.contains("edited", ignoreCase = true)
 
-            val duration = extractVideoDuration(context, uri)
+            val duration = getVideoDurationFast(context, uri)
 
             result.add(
                 GalleryMediaItem(
@@ -140,6 +203,7 @@ object GalleryMediaHelper {
                     val rawName = cursor.getString(nameCol) ?: "Video"
                     val dateSec = cursor.getLong(dateCol)
                     val duration = cursor.getLong(durCol)
+                    durationCache[uriStr] = duration
                     val size = cursor.getLong(sizeCol)
                     val path = if (dataCol >= 0) cursor.getString(dataCol) ?: "" else ""
 
@@ -238,7 +302,7 @@ object GalleryMediaHelper {
                             val fileUri = Uri.fromFile(file)
                             if (seenUriStrings.add(fileUri.toString())) {
                                 val isEdited = file.name.contains("edited", ignoreCase = true)
-                                val duration = if (isVid) extractVideoDuration(context, fileUri) else 0L
+                                val duration = if (isVid) getVideoDurationFast(context, fileUri) else 0L
                                 result.add(
                                     GalleryMediaItem(
                                         id = "file_${file.name}_${file.lastModified()}",

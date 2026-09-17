@@ -31,7 +31,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import coil.compose.SubcomposeAsyncImage
+import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import coil.request.videoFrameMillis
 import com.buwin.tiktokvideodownload.ui.screens.gallery.model.GalleryMediaItem
@@ -54,18 +54,20 @@ fun GalleryMediaCard(
 ) {
     val context = LocalContext.current
     var cardCoordinates by remember { mutableStateOf<LayoutCoordinates?>(null) }
+    var isError by remember(item.uri) { mutableStateOf(false) }
 
     val imageRequest = remember(item.uri, item.sourceRecord?.coverUrl) {
         val cover = item.sourceRecord?.coverUrl
         val targetData = if (!cover.isNullOrEmpty()) cover else item.uri
         ImageRequest.Builder(context)
             .data(targetData)
+            .size(360, 360)
             .apply {
                 if (item.isVideo) {
                     videoFrameMillis(1000L)
                 }
             }
-            .crossfade(true)
+            .crossfade(150)
             .build()
     }
 
@@ -81,34 +83,29 @@ fun GalleryMediaCard(
                 onLongClick = onLongClick
             )
     ) {
-        SubcomposeAsyncImage(
+        AsyncImage(
             model = imageRequest,
             contentDescription = item.title,
             contentScale = ContentScale.Crop,
             modifier = Modifier.fillMaxSize(),
-            loading = {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(if (isDark) Color(0xFF2C2C2E) else Color(0xFFE5E5EA))
-                )
-            },
-            error = {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(if (isDark) Color(0xFF2C2C2E) else Color(0xFFE5E5EA)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = if (item.isVideo) CupertinoIcons.Filled.Play else CupertinoIcons.Outlined.Photo,
-                        contentDescription = null,
-                        tint = if (isDark) Color.White.copy(alpha = 0.35f) else Color.Black.copy(alpha = 0.35f),
-                        modifier = Modifier.size(24.dp)
-                    )
-                }
-            }
+            onError = { isError = true }
         )
+
+        if (isError) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(if (isDark) Color(0xFF2C2C2E) else Color(0xFFE5E5EA)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = if (item.isVideo) CupertinoIcons.Filled.Play else CupertinoIcons.Outlined.Photo,
+                    contentDescription = null,
+                    tint = if (isDark) Color.White.copy(alpha = 0.35f) else Color.Black.copy(alpha = 0.35f),
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+        }
 
         // Video indicator & duration badge (Apple / Samsung style)
         if (item.isVideo) {

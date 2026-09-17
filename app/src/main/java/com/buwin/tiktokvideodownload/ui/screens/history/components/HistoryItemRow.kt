@@ -32,7 +32,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import coil.compose.SubcomposeAsyncImage
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalContext
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
 import com.buwin.tiktokvideodownload.R
 import com.buwin.tiktokvideodownload.data.model.DownloadRecord
 import com.buwin.tiktokvideodownload.ui.components.download.shimmerEffect
@@ -126,26 +131,23 @@ fun HistoryItemRow(
                 ),
             contentAlignment = Alignment.Center
         ) {
-            if (record.coverUrl.isNotEmpty()) {
-                SubcomposeAsyncImage(
-                    model = record.coverUrl,
+            var isError by remember(record.coverUrl) { mutableStateOf(false) }
+            val context = LocalContext.current
+            val imageRequest = remember(record.coverUrl) {
+                ImageRequest.Builder(context)
+                    .data(record.coverUrl)
+                    .size(160, 160)
+                    .crossfade(150)
+                    .build()
+            }
+
+            if (record.coverUrl.isNotEmpty() && !isError) {
+                AsyncImage(
+                    model = imageRequest,
                     contentDescription = record.title,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier.fillMaxSize(),
-                    loading = {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .shimmerEffect(isDark)
-                        )
-                    },
-                    error = {
-                        PlatformFallbackThumbnail(
-                            platform = platform,
-                            isAudio = isAudio,
-                            isDark = isDark
-                        )
-                    }
+                    onError = { isError = true }
                 )
             } else {
                 PlatformFallbackThumbnail(

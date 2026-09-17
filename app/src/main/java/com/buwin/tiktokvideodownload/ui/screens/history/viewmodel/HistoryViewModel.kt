@@ -10,9 +10,11 @@ import com.buwin.tiktokvideodownload.ui.components.toast.AppToast
 import com.buwin.tiktokvideodownload.ui.screens.history.model.HistoryDateGroup
 import com.buwin.tiktokvideodownload.ui.screens.history.model.HistoryGroupUtils
 import com.google.firebase.auth.FirebaseUser
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 /**
@@ -41,7 +43,7 @@ class HistoryViewModel(
         // Listen to authentication changes and auto-sync
         viewModelScope.launch {
             authManager.currentUser.collect { user ->
-                _uiState.value = _uiState.value.copy(currentUser = user)
+                _uiState.update { it.copy(currentUser = user) }
                 if (user != null) {
                     syncWithCloud(showToast = false)
                 } else {
@@ -52,16 +54,20 @@ class HistoryViewModel(
     }
 
     /**
-     * Loads local records from storage and groups them by date.
+     * Loads local records from storage and groups them by date asynchronously on IO thread.
      */
     fun loadLocalHistory() {
-        val local = historyRepository.getLocalHistory()
-        val groups = HistoryGroupUtils.groupByDate(local)
-        _uiState.value = _uiState.value.copy(
-            records = local,
-            groups = groups,
-            isLoading = false
-        )
+        viewModelScope.launch(Dispatchers.IO) {
+            val local = historyRepository.getLocalHistory()
+            val groups = HistoryGroupUtils.groupByDate(local)
+            _uiState.update {
+                it.copy(
+                    records = local,
+                    groups = groups,
+                    isLoading = false
+                )
+            }
+        }
     }
 
     /**

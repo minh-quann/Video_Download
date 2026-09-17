@@ -76,7 +76,8 @@ fun GalleryScreen(
     downloadHelper: DownloadManagerHelper,
     onPlayRecord: (DownloadRecord, Rect?) -> Unit,
     onEditRecord: (DownloadRecord) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    isVisible: Boolean = true
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -139,11 +140,13 @@ fun GalleryScreen(
         loadMedia()
     }
 
-    LaunchedEffect(Unit) {
-        if (!hasPermission) {
-            permissionLauncher.launch(permissions.toTypedArray())
+    LaunchedEffect(isVisible) {
+        if (isVisible) {
+            if (!hasPermission) {
+                permissionLauncher.launch(permissions.toTypedArray())
+            }
+            loadMedia()
         }
-        loadMedia()
     }
 
     // Automatically detect newly captured photos/videos via real-time MediaStore observer
@@ -217,7 +220,11 @@ fun GalleryScreen(
             }
 
             // Media items: direct click opens full-screen player, long click opens actions
-            items(safeMediaItems, key = { it.id }) { item ->
+            items(
+                items = safeMediaItems,
+                key = { it.id },
+                contentType = { it.isVideo }
+            ) { item ->
                 GalleryMediaCard(
                     item = item,
                     isDark = isDark,

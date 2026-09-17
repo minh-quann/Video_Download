@@ -12,8 +12,10 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -21,6 +23,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.layout
+import androidx.compose.ui.zIndex
+import kotlinx.coroutines.delay
 import androidx.compose.ui.text.PlatformTextStyle
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -83,6 +89,26 @@ fun MainTabContainer(
         )
     }
 
+    // Keep tabs alive in memory once created, pre-warming sequentially during idle time
+    val loadedTabs = remember { mutableStateListOf(0) }
+
+    // Pre-warm remaining tabs in the background after Home screen initial composition settles
+    LaunchedEffect(Unit) {
+        delay(400)
+        if (!loadedTabs.contains(1)) loadedTabs.add(1)
+        delay(200)
+        if (!loadedTabs.contains(2)) loadedTabs.add(2)
+        delay(200)
+        if (!loadedTabs.contains(3)) loadedTabs.add(3)
+    }
+
+    // Ensure currently selected tab is marked as loaded immediately if user switched early
+    LaunchedEffect(selectedTab) {
+        if (!loadedTabs.contains(selectedTab)) {
+            loadedTabs.add(selectedTab)
+        }
+    }
+
     val backgroundColor = if (isDark) BackgroundDark else BackgroundLight
     val isBottomBarVisible = !isSettingsSubScreenOpen
 
@@ -94,34 +120,70 @@ fun MainTabContainer(
                 .fillMaxSize()
                 .background(backgroundColor)
         ) {
-            when (selectedTab) {
-                0 -> HomeScreen(
-                    tiktokService = tiktokService,
-                    downloadHelper = downloadHelper,
-                    themePreferences = themePreferences,
-                    sharedUrl = sharedUrl,
-                    backdrop = localBackdrop,
-                    viewModel = homeViewModel
-                )
-                1 -> GalleryScreen(
-                    backdrop = localBackdrop,
-                    downloadHelper = downloadHelper,
-                    onPlayRecord = onOpenPlayer,
-                    onEditRecord = onOpenEditor
-                )
-                2 -> HistoryScreen(
-                    backdrop = localBackdrop,
-                    downloadHelper = downloadHelper,
-                    authManager = authManager,
-                    onPlayRecord = { record -> onOpenPlayer(record, null) }
-                )
-                3 -> SettingsScreen(
-                    backdrop = localBackdrop,
-                    themePreferences = themePreferences,
-                    downloadHelper = downloadHelper,
-                    authManager = authManager,
-                    onSubScreenChanged = { isSettingsSubScreenOpen = it }
-                )
+            // ── Keep tabs alive & pre-warmed for buttery-smooth 120 FPS tab switching ──
+            if (loadedTabs.contains(0)) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .keepAliveTab(selectedTab == 0)
+                ) {
+                    HomeScreen(
+                        tiktokService = tiktokService,
+                        downloadHelper = downloadHelper,
+                        themePreferences = themePreferences,
+                        sharedUrl = sharedUrl,
+                        backdrop = localBackdrop,
+                        viewModel = homeViewModel
+                    )
+                }
+            }
+
+            if (loadedTabs.contains(1)) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .keepAliveTab(selectedTab == 1)
+                ) {
+                    GalleryScreen(
+                        backdrop = localBackdrop,
+                        downloadHelper = downloadHelper,
+                        onPlayRecord = onOpenPlayer,
+                        onEditRecord = onOpenEditor,
+                        isVisible = selectedTab == 1
+                    )
+                }
+            }
+
+            if (loadedTabs.contains(2)) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .keepAliveTab(selectedTab == 2)
+                ) {
+                    HistoryScreen(
+                        backdrop = localBackdrop,
+                        downloadHelper = downloadHelper,
+                        authManager = authManager,
+                        onPlayRecord = { record -> onOpenPlayer(record, null) },
+                        isVisible = selectedTab == 2
+                    )
+                }
+            }
+
+            if (loadedTabs.contains(3)) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .keepAliveTab(selectedTab == 3)
+                ) {
+                    SettingsScreen(
+                        backdrop = localBackdrop,
+                        themePreferences = themePreferences,
+                        downloadHelper = downloadHelper,
+                        authManager = authManager,
+                        onSubScreenChanged = { isSettingsSubScreenOpen = it }
+                    )
+                }
             }
         }
 
@@ -240,3 +302,25 @@ fun MainTabContainer(
         }
     }
 }
+
+/**
+ * Keeps inactive tabs alive in composition without drawing or intercepting touch events.
+ * Uses layout offset placement far off-screen and alpha/zIndex 0 for zero rendering cost,
+ * preserving scroll state and avoiding destructive composition rebuild jank.
+ */
+private fun Modifier.keepAliveTab(visible: Boolean): Modifier = this
+    .graphicsLayer {
+        alpha = if (visible) 1f else 0f
+    }
+    .zIndex(if (visible) 1f else 0f)
+    .layout { measurable, constraints ->
+        val placeable = measurable.measure(constraints)
+        layout(placeable.width, placeable.height) {
+            if (visible) {
+                placeable.place(0, 0)
+            } else {
+                placeable.place(-100000, -100000)
+            }
+        }
+    }
+
