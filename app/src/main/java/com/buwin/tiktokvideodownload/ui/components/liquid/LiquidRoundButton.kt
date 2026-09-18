@@ -38,7 +38,7 @@ import kotlin.math.tanh
 
 /**
  * Circular / Round button with Liquid Glass refraction, blur, specular highlight, and tactile deformation.
- * Supports all 3 variants from the original Kyant0 AndroidLiquidGlass library:
+ * Supports 3 variants:
  * - Transparent: pure glass refraction without surface overlay
  * - Surface: frosted translucent surface with light/dark adaptive tint
  * - Tinted: Hue-blended vibrant color glass

@@ -71,7 +71,7 @@ fun PlayerTopBar(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            // Back button - Authentic Liquid Glass round button matching HistoryScreen
+            // Back button - Liquid Glass round button matching HistoryScreen
             LiquidRoundButton(
                 onClick = onDismiss,
                 backdrop = backdrop,

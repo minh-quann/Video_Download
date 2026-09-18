@@ -55,7 +55,7 @@ import kotlinx.coroutines.launch
 /**
  * Full-screen Video Editor with Liquid Glass.
  *
- * Architecture (same as Kyant0/AndroidLiquidGlass docs):
+ * Architecture:
  *   Box {
  *     Column(.layerBackdrop)  ← SOURCE: video + timeline (captured for refraction)
  *     Column (overlay)        ← GLASS: TopBar + ToolBar with drawBackdrop (OUTSIDE layerBackdrop!)
@@ -199,7 +199,6 @@ fun VideoEditorModal(
     }
 
     // ── Layout ──
-    // Same pattern as Kyant0 library + MainActivity:
     // layerBackdrop = captured source content
     // drawBackdrop elements = overlay siblings OUTSIDE layerBackdrop
     Box(

@@ -51,7 +51,7 @@ import kotlin.math.sqrt
 import kotlin.math.tanh
 
 /**
- * Authentic Apple Photos style bottom action bar for image viewing.
+ * Apple Photos style bottom action bar for image viewing.
  * Layout:
  * - Leftmost: Round Liquid Glass button for Share (SquareAndArrowUp).
  * - Center: Seamless Liquid Glass Capsule holding 3 monochrome actions (Favorite, Info, Edit)

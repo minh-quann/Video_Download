@@ -37,7 +37,6 @@ import com.buwin.tiktokvideodownload.data.auth.AuthManager
 import com.buwin.tiktokvideodownload.data.download.DownloadManagerHelper
 import com.buwin.tiktokvideodownload.data.model.DownloadRecord
 import com.buwin.tiktokvideodownload.data.service.TikTokService
-import com.buwin.tiktokvideodownload.ui.components.liquid.LiquidBottomProgressiveBlur
 import com.buwin.tiktokvideodownload.ui.components.liquid.LiquidBottomTab
 import com.buwin.tiktokvideodownload.ui.components.liquid.LiquidBottomTabs
 import com.buwin.tiktokvideodownload.ui.screens.HistoryScreen
@@ -187,30 +186,17 @@ fun MainTabContainer(
             }
         }
 
-        // Progressive Blur Footer (Apple-style gradient blur dissolving scrolling content towards bottom edge)
-        AnimatedVisibility(
-            visible = isBottomBarVisible,
-            enter = fadeIn(),
-            exit = fadeOut(),
-            modifier = Modifier.align(Alignment.BottomCenter)
-        ) {
-            LiquidBottomProgressiveBlur(
-                backdrop = screenBackdrop,
-                isDark = isDark
-            )
-        }
-
         val contentColor = if (isDark) Color.White else Color.Black
 
-        // Authentic Liquid Glass Bottom Tabs directly from Kyant0/AndroidLiquidGlass
+        // Floating Liquid Glass Bottom Tabs
         AnimatedVisibility(
             visible = isBottomBarVisible,
             enter = fadeIn(),
             exit = fadeOut(),
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                .padding(horizontal = 24.dp, vertical = 16.dp)
                 .navigationBarsPadding()
+                .padding(horizontal = 16.dp, vertical = 2.dp)
         ) {
             LiquidBottomTabs(
                 selectedTabIndex = { selectedTab },

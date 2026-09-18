@@ -7,6 +7,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -14,6 +15,7 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -57,7 +59,11 @@ import io.github.alexzhirkevich.cupertino.icons.outlined.MusicNote
 import io.github.alexzhirkevich.cupertino.icons.outlined.Paintpalette
 import io.github.alexzhirkevich.cupertino.icons.outlined.SliderHorizontal3
 import io.github.alexzhirkevich.cupertino.icons.outlined.SunMax
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.vector.ImageVector
+import com.buwin.tiktokvideodownload.ui.components.liquid.LiquidButton
+import com.buwin.tiktokvideodownload.ui.components.liquid.LiquidButtonVariant
+import com.kyant.shapes.Capsule
 
 /**
  * Liquid Glass bottom toolbar with horizontally scrollable chips.
@@ -112,7 +118,8 @@ fun EditorToolBar(
                             items = listOf(
                                 ToggleItem("Cắt Video", isTrimEnabled) { onToggleTrim() },
                                 ToggleItem("Tách Nhạc", isExtractAudioOnly) { onToggleExtractAudio() }
-                            )
+                            ),
+                            backdrop = backdrop
                         )
                     }
                 }
@@ -122,18 +129,19 @@ fun EditorToolBar(
                             items = listOf(
                                 ToggleItem("Tắt Tiếng", isMuteEnabled) { onToggleMute() },
                                 ToggleItem("Ghép Nhạc", isReplaceAudioEnabled) { onToggleReplaceAudio() }
-                            )
+                            ),
+                            backdrop = backdrop
                         )
                     }
                 }
                 EditorToolCategory.SPEED -> {
                     LiquidContextPanel(backdrop = backdrop) {
-                        SpeedPanel(currentSpeed = speedMultiplier, onSpeedChange = onSpeedChange)
+                        SpeedPanel(currentSpeed = speedMultiplier, backdrop = backdrop, onSpeedChange = onSpeedChange)
                     }
                 }
                 EditorToolCategory.ROTATE -> {
                     LiquidContextPanel(backdrop = backdrop) {
-                        RotatePanel(currentDegrees = rotationDegrees, onRotate = onRotate)
+                        RotatePanel(currentDegrees = rotationDegrees, backdrop = backdrop, onRotate = onRotate)
                     }
                 }
                 EditorToolCategory.ADJUST -> {
@@ -223,20 +231,20 @@ private fun LiquidContextPanel(
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 8.dp)
+            .padding(horizontal = 12.dp, vertical = 4.dp)
             .drawBackdrop(
                 backdrop = backdrop,
                 shape = { RoundedRectangle(20f.dp) },
                 effects = {
                     vibrancy()
-                    blur(6f.dp.toPx())
-                    lens(12f.dp.toPx(), 20f.dp.toPx())
+                    blur(8f.dp.toPx())
+                    lens(24f.dp.toPx(), 24f.dp.toPx())
                 },
-                highlight = { Highlight.Default.copy(alpha = 0.25f) },
-                shadow = { Shadow(radius = 10f.dp, color = Color.Black.copy(alpha = 0.2f)) },
-                innerShadow = { InnerShadow(radius = 4f.dp, alpha = 0.08f) },
+                highlight = { Highlight.Default.copy(alpha = 0.35f) },
+                shadow = { Shadow(radius = 8f.dp, color = Color.Black.copy(alpha = 0.35f)) },
+                innerShadow = { InnerShadow(radius = 6f.dp, alpha = 0.18f) },
                 onDrawSurface = {
-                    drawRect(Color.White.copy(alpha = 0.04f))
+                    drawRect(Color(0xFF505056).copy(alpha = 0.55f))
                 }
             )
             .padding(horizontal = 16.dp, vertical = 14.dp)
@@ -254,33 +262,31 @@ data class ToggleItem(
 )
 
 @Composable
-private fun ToggleRow(items: List<ToggleItem>) {
-    val accentColor = Color(0xFF007AFF)
+private fun ToggleRow(
+    items: List<ToggleItem>,
+    backdrop: Backdrop
+) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         items.forEach { item ->
-            Box(
+            LiquidButton(
+                onClick = item.onClick,
+                backdrop = backdrop,
+                variant = if (item.isActive) LiquidButtonVariant.Tinted else LiquidButtonVariant.Surface,
+                tint = if (item.isActive) Color(0xFF007AFF) else Color.Unspecified,
+                isDark = true,
+                isInteractive = true,
                 modifier = Modifier
                     .weight(1f)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(if (item.isActive) accentColor else Color.White.copy(alpha = 0.06f))
-                    .border(
-                        1.dp,
-                        if (item.isActive) accentColor.copy(alpha = 0.5f) else Color.White.copy(alpha = 0.08f),
-                        RoundedCornerShape(12.dp)
-                    )
-                    .clickable { item.onClick() }
-                    .padding(vertical = 12.dp),
-                contentAlignment = Alignment.Center
+                    .height(44.dp)
             ) {
                 Text(
                     text = item.label,
                     color = Color.White,
-                    fontSize = 13.sp,
-                    fontWeight = if (item.isActive) FontWeight.Bold else FontWeight.Medium,
-                    textAlign = TextAlign.Center
+                    fontSize = 13.5.sp,
+                    fontWeight = if (item.isActive) FontWeight.Bold else FontWeight.Medium
                 )
             }
         }
@@ -288,9 +294,12 @@ private fun ToggleRow(items: List<ToggleItem>) {
 }
 
 @Composable
-private fun SpeedPanel(currentSpeed: Float, onSpeedChange: (Float) -> Unit) {
+private fun SpeedPanel(
+    currentSpeed: Float,
+    backdrop: Backdrop,
+    onSpeedChange: (Float) -> Unit
+) {
     val speeds = listOf(0.25f, 0.5f, 0.75f, 1.0f, 1.5f, 2.0f, 3.0f)
-    val accentColor = Color(0xFF007AFF)
 
     Column(modifier = Modifier.fillMaxWidth()) {
         Text(
@@ -302,29 +311,29 @@ private fun SpeedPanel(currentSpeed: Float, onSpeedChange: (Float) -> Unit) {
         Spacer(modifier = Modifier.height(12.dp))
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
         ) {
             speeds.forEach { speed ->
                 val isSelected = currentSpeed == speed
-                Box(
+                LiquidButton(
+                    onClick = { onSpeedChange(speed) },
+                    backdrop = backdrop,
+                    variant = if (isSelected) LiquidButtonVariant.Tinted else LiquidButtonVariant.Surface,
+                    tint = if (isSelected) Color(0xFF007AFF) else Color.Unspecified,
+                    isDark = true,
+                    isInteractive = true,
+                    contentPadding = PaddingValues(horizontal = 0.dp, vertical = 2.dp),
                     modifier = Modifier
                         .weight(1f)
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(if (isSelected) accentColor else Color.White.copy(alpha = 0.06f))
-                        .border(
-                            0.5.dp,
-                            if (isSelected) accentColor.copy(alpha = 0.6f) else Color.White.copy(alpha = 0.06f),
-                            RoundedCornerShape(10.dp)
-                        )
-                        .clickable { onSpeedChange(speed) }
-                        .padding(vertical = 10.dp),
-                    contentAlignment = Alignment.Center
+                        .height(36.dp)
                 ) {
                     Text(
                         text = "${speed}x",
-                        color = if (isSelected) Color.White else Color(0xFF9CA3AF),
-                        fontSize = 12.sp,
+                        color = Color.White,
+                        fontSize = 11.sp,
                         fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                        maxLines = 1,
+                        softWrap = false,
                         textAlign = TextAlign.Center
                     )
                 }
@@ -334,22 +343,25 @@ private fun SpeedPanel(currentSpeed: Float, onSpeedChange: (Float) -> Unit) {
 }
 
 @Composable
-private fun RotatePanel(currentDegrees: Float, onRotate: () -> Unit) {
-    val accentColor = Color(0xFF007AFF)
+private fun RotatePanel(
+    currentDegrees: Float,
+    backdrop: Backdrop,
+    onRotate: () -> Unit
+) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Box(
+        LiquidButton(
+            onClick = onRotate,
+            backdrop = backdrop,
+            variant = LiquidButtonVariant.Surface,
+            isDark = true,
+            isInteractive = true,
             modifier = Modifier
                 .weight(1f)
-                .clip(RoundedCornerShape(12.dp))
-                .background(accentColor.copy(alpha = 0.12f))
-                .border(1.dp, accentColor.copy(alpha = 0.25f), RoundedCornerShape(12.dp))
-                .clickable { onRotate() }
-                .padding(vertical = 14.dp),
-            contentAlignment = Alignment.Center
+                .height(48.dp)
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -358,7 +370,7 @@ private fun RotatePanel(currentDegrees: Float, onRotate: () -> Unit) {
                 Icon(
                     imageVector = CupertinoIcons.Outlined.RotateRight,
                     contentDescription = null,
-                    tint = accentColor,
+                    tint = Color(0xFF007AFF),
                     modifier = Modifier.size(22.dp)
                 )
                 Text(
@@ -369,17 +381,19 @@ private fun RotatePanel(currentDegrees: Float, onRotate: () -> Unit) {
                 )
             }
         }
+
         Box(
             modifier = Modifier
-                .clip(RoundedCornerShape(12.dp))
-                .background(Color.White.copy(alpha = 0.06f))
-                .padding(horizontal = 16.dp, vertical = 14.dp),
+                .clip(Capsule())
+                .background(Color(0xFF505056).copy(alpha = 0.55f))
+                .border(0.8.dp, Color.White.copy(alpha = 0.15f), Capsule())
+                .padding(horizontal = 18.dp, vertical = 14.dp),
             contentAlignment = Alignment.Center
         ) {
             Text(
                 text = "${currentDegrees.toInt()}°",
-                color = if (currentDegrees != 0f) accentColor else Color(0xFF9CA3AF),
-                fontSize = 16.sp,
+                color = if (currentDegrees != 0f) Color(0xFF007AFF) else Color.White.copy(alpha = 0.6f),
+                fontSize = 15.sp,
                 fontWeight = FontWeight.Bold
             )
         }
@@ -442,7 +456,7 @@ private fun AdjustPanel(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .heightIn(max = 195.dp)
+                .heightIn(max = 280.dp)
                 .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
@@ -490,6 +504,7 @@ private fun AdjustPanel(
                 valueRange = 0f..1f,
                 backdrop = backdrop
             )
+            Spacer(modifier = Modifier.height(4.dp))
         }
     }
 }

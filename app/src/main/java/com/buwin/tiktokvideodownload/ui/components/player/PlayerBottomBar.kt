@@ -38,8 +38,8 @@ import io.github.alexzhirkevich.cupertino.icons.outlined.ArrowUpLeftAndArrowDown
 import com.buwin.tiktokvideodownload.ui.theme.LocalIsDark
 
 /**
- * Bottom playback control bar designed to authentic Apple iOS AVPlayer / Photos standards.
- * Features a pure-white dynamic scrubber, tabular time indicator, and shared Apple Liquid Glass action buttons.
+ * Bottom playback control bar designed to iOS AVPlayer / Photos standards.
+ * Features a dynamic scrubber, tabular time indicator, and glass action buttons.
  */
 @Composable
 fun PlayerBottomBar(

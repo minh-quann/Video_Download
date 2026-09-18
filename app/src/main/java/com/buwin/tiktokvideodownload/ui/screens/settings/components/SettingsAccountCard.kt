@@ -16,6 +16,12 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material3.Card
@@ -27,12 +33,18 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -149,19 +161,49 @@ fun SettingsAccountCard(
                 Spacer(modifier = Modifier.height(10.dp))
 
                 // Actions: Sync Now & Sign Out
+                val buttonSpring = spring<Float>(dampingRatio = 0.80f, stiffness = 450f)
+                val haptic = LocalHapticFeedback.current
+
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.End,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Surface(
-                        onClick = onSyncClick,
-                        shape = RoundedCornerShape(14.dp),
-                        color = MaterialTheme.colorScheme.primary.copy(alpha = if (isDark) 0.22f else 0.12f),
-                        modifier = Modifier.height(36.dp)
+                    // 1. Sync Button (Full Rounded Capsule)
+                    val syncInteractionSource = remember { MutableInteractionSource() }
+                    val isSyncPressed by syncInteractionSource.collectIsPressedAsState()
+                    val syncScale by animateFloatAsState(
+                        targetValue = if (isSyncPressed) 0.95f else 1f,
+                        animationSpec = buttonSpring,
+                        label = "syncScale"
+                    )
+
+                    val syncColor = MaterialTheme.colorScheme.primary
+                    val syncBg = syncColor.copy(alpha = if (isDark) 0.18f else 0.10f)
+                    val syncBorder = syncColor.copy(alpha = if (isDark) 0.30f else 0.20f)
+
+                    Box(
+                        modifier = Modifier
+                            .graphicsLayer {
+                                scaleX = syncScale
+                                scaleY = syncScale
+                            }
+                            .clip(CircleShape)
+                            .background(syncBg)
+                            .border(BorderStroke(1.dp, syncBorder), CircleShape)
+                            .clickable(
+                                interactionSource = syncInteractionSource,
+                                indication = null,
+                                role = Role.Button,
+                                enabled = !isSyncing
+                            ) {
+                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                onSyncClick()
+                            }
+                            .padding(horizontal = 14.dp, vertical = 9.dp),
+                        contentAlignment = Alignment.Center
                     ) {
                         Row(
-                            modifier = Modifier.padding(horizontal = 12.dp),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
@@ -169,49 +211,75 @@ fun SettingsAccountCard(
                                 CircularProgressIndicator(
                                     modifier = Modifier.size(14.dp),
                                     strokeWidth = 2.dp,
-                                    color = MaterialTheme.colorScheme.primary
+                                    color = syncColor
                                 )
                             } else {
                                 Icon(
                                     imageVector = CupertinoIcons.Outlined.ArrowClockwise,
                                     contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(14.dp)
+                                    tint = syncColor,
+                                    modifier = Modifier.size(15.dp)
                                 )
                             }
                             Text(
                                 text = if (isSyncing) "Đang đồng bộ..." else "Đồng bộ ngay",
-                                fontSize = 12.5.sp,
+                                fontSize = 13.sp,
                                 fontWeight = FontWeight.SemiBold,
-                                color = MaterialTheme.colorScheme.primary
+                                color = syncColor
                             )
                         }
                     }
 
                     Spacer(modifier = Modifier.width(10.dp))
 
-                    Surface(
-                        onClick = onSignOutClick,
-                        shape = RoundedCornerShape(14.dp),
-                        color = Color(0xFFEF4444).copy(alpha = if (isDark) 0.22f else 0.12f),
-                        modifier = Modifier.height(36.dp)
+                    // 2. Sign Out Button (Full Rounded Capsule)
+                    val signOutInteractionSource = remember { MutableInteractionSource() }
+                    val isSignOutPressed by signOutInteractionSource.collectIsPressedAsState()
+                    val signOutScale by animateFloatAsState(
+                        targetValue = if (isSignOutPressed) 0.95f else 1f,
+                        animationSpec = buttonSpring,
+                        label = "signOutScale"
+                    )
+
+                    val signOutRed = Color(0xFFFF3B30)
+                    val signOutBg = signOutRed.copy(alpha = if (isDark) 0.18f else 0.10f)
+                    val signOutBorder = signOutRed.copy(alpha = if (isDark) 0.30f else 0.20f)
+
+                    Box(
+                        modifier = Modifier
+                            .graphicsLayer {
+                                scaleX = signOutScale
+                                scaleY = signOutScale
+                            }
+                            .clip(CircleShape)
+                            .background(signOutBg)
+                            .border(BorderStroke(1.dp, signOutBorder), CircleShape)
+                            .clickable(
+                                interactionSource = signOutInteractionSource,
+                                indication = null,
+                                role = Role.Button
+                            ) {
+                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                onSignOutClick()
+                            }
+                            .padding(horizontal = 14.dp, vertical = 9.dp),
+                        contentAlignment = Alignment.Center
                     ) {
                         Row(
-                            modifier = Modifier.padding(horizontal = 12.dp),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
                             Icon(
                                 imageVector = Icons.AutoMirrored.Filled.Logout,
                                 contentDescription = null,
-                                tint = Color(0xFFEF4444),
-                                modifier = Modifier.size(14.dp)
+                                tint = signOutRed,
+                                modifier = Modifier.size(15.dp)
                             )
                             Text(
                                 text = "Đăng xuất",
-                                fontSize = 12.5.sp,
+                                fontSize = 13.sp,
                                 fontWeight = FontWeight.SemiBold,
-                                color = Color(0xFFEF4444)
+                                color = signOutRed
                             )
                         }
                     }

@@ -76,13 +76,13 @@ import io.github.alexzhirkevich.cupertino.icons.outlined.Clipboard
 import io.github.alexzhirkevich.cupertino.icons.outlined.MagnifyingGlass
 
 /**
- * Authentic iOS 26 Liquid Glass Search Bar.
+ * Liquid Glass Search Bar.
  *
- * Implements the official Apple SwiftUI & Flutter liquid_glass_widgets pattern:
+ * Implements search bar pattern:
  * - Fluid spring transition: Search bar stretches across full width and smoothly resizes to accommodate
  *   the detached glass "Hủy" (Cancel) button sliding in from the trailing edge.
- * - Synchronized expandHorizontally + slideInHorizontally: Guarantees zero-jank, continuous 120 FPS interpolation.
- * - Deep real-time optical refraction, vibrancy, and specular highlights.
+ * - Synchronized expandHorizontally + slideInHorizontally for smooth animation.
+ * - Real-time optical refraction, vibrancy, and specular highlights.
  */
 @Composable
 fun LiquidSearchBar(

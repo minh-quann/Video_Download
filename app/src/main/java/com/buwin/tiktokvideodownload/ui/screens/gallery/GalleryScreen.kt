@@ -300,6 +300,8 @@ fun GalleryScreen(
             confirmText = "Xóa tệp",
             cancelText = "Hủy",
             isDestructive = true,
+            backdrop = backdrop,
+            isDark = isDark,
             onConfirm = {
                 val item = deletingItem ?: return@AppConfirmationModal
                 try {

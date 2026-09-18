@@ -3,8 +3,10 @@ package com.buwin.tiktokvideodownload.ui.components.liquid
 import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.LocalContentColor
@@ -40,7 +42,7 @@ import kotlin.math.sin
 import kotlin.math.tanh
 
 /**
- * Visual styling variants matching the official Kyant0 AndroidLiquidGlass library:
+ * Visual styling variants for liquid glass button:
  * - [Transparent]: Pure glass refraction and specular highlight without surface overlay.
  * - [Surface]: Frosted glass with adaptive translucent surface tint (or custom surfaceColor).
  * - [Tinted]: Rich color saturation wash using Hue blending (e.g. Apple blue, orange, yellow).
@@ -53,7 +55,7 @@ enum class LiquidButtonVariant {
 
 /**
  * Pill / Capsule button with Liquid Glass refraction, blur, specular highlight, and tactile deformation.
- * Supports all 3 variants from the original Kyant0 AndroidLiquidGlass library:
+ * Supports 3 variants:
  * - Transparent: pure glass refraction without surface overlay
  * - Surface: frosted translucent surface with light/dark adaptive tint
  * - Tinted: Hue-blended vibrant color glass
@@ -74,6 +76,7 @@ fun LiquidButton(
     blurRadius: Dp = 4.dp,
     lensHeight: Dp = 12.dp,
     lensWidth: Dp = 24.dp,
+    contentPadding: PaddingValues = PaddingValues(horizontal = 16.dp),
     content: @Composable RowScope.() -> Unit
 ) {
     // Resolve variant safely inside function body to avoid uninitialized default-arg forward reference
@@ -110,6 +113,7 @@ fun LiquidButton(
 
     Row(
         modifier
+            .defaultMinSize(minHeight = 48.dp)
             .drawBackdrop(
                 backdrop = backdrop,
                 shape = { shape },
@@ -199,8 +203,7 @@ fun LiquidButton(
                     Modifier
                 }
             )
-            .height(48f.dp)
-            .padding(horizontal = 16f.dp),
+            .padding(contentPadding),
         horizontalArrangement = Arrangement.spacedBy(8f.dp, Alignment.CenterHorizontally),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -223,6 +226,7 @@ fun TransparentLiquidButton(
     showBorder: Boolean = false,
     isDark: Boolean = LocalIsDark.current,
     shape: Shape = Capsule(),
+    contentPadding: PaddingValues = PaddingValues(horizontal = 16.dp),
     content: @Composable RowScope.() -> Unit
 ) {
     LiquidButton(
@@ -235,6 +239,7 @@ fun TransparentLiquidButton(
         showBorder = showBorder,
         isDark = isDark,
         shape = shape,
+        contentPadding = contentPadding,
         content = content
     )
 }
@@ -253,6 +258,7 @@ fun SurfaceLiquidButton(
     showBorder: Boolean = false,
     isDark: Boolean = LocalIsDark.current,
     shape: Shape = Capsule(),
+    contentPadding: PaddingValues = PaddingValues(horizontal = 16.dp),
     content: @Composable RowScope.() -> Unit
 ) {
     LiquidButton(
@@ -266,6 +272,7 @@ fun SurfaceLiquidButton(
         showBorder = showBorder,
         isDark = isDark,
         shape = shape,
+        contentPadding = contentPadding,
         content = content
     )
 }
@@ -284,6 +291,7 @@ fun TintedLiquidButton(
     showBorder: Boolean = false,
     isDark: Boolean = LocalIsDark.current,
     shape: Shape = Capsule(),
+    contentPadding: PaddingValues = PaddingValues(horizontal = 16.dp),
     content: @Composable RowScope.() -> Unit
 ) {
     LiquidButton(
@@ -297,6 +305,7 @@ fun TintedLiquidButton(
         showBorder = showBorder,
         isDark = isDark,
         shape = shape,
+        contentPadding = contentPadding,
         content = content
     )
 }

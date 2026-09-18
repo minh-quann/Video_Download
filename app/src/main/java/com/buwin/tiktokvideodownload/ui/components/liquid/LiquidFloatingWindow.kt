@@ -61,11 +61,11 @@ import io.github.alexzhirkevich.cupertino.icons.filled.PlayCircle
 import io.github.alexzhirkevich.cupertino.icons.filled.XmarkCircle
 
 /**
- * Authentic Liquid Glass Mini Floating Window (Cửa sổ nổi mini dạng kính lỏng).
+ * Liquid Glass Mini Floating Window.
  *
- * Implements the iOS 26 PiP / mini window pattern:
- * - 26dp rounded corner morphing glass capsule
- * - Deep optical lens refraction with chromatic aberration and edge highlights
+ * Implements PiP / mini window pattern:
+ * - Rounded corner morphing glass capsule
+ * - Deep optical lens refraction with edge highlights
  * - Real-time stats, live status pill, and tactile controls
  */
 @Composable

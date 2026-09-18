@@ -204,7 +204,7 @@ fun MainApp(
             modifier = Modifier.layerBackdrop(rootBackdrop)
         )
 
-        // Authentic iOS Waterdrop Dynamic Island Toast floating over entire app
+        // Dynamic Island Toast floating over entire app
         WaterdropToast(
             isDark = isDark,
             modifier = Modifier.align(Alignment.TopCenter),

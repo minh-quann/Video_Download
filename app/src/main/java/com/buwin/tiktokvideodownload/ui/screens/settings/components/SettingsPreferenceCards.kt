@@ -29,6 +29,7 @@ import androidx.compose.ui.unit.sp
 import com.buwin.tiktokvideodownload.ui.components.liquid.LiquidToggle
 import com.buwin.tiktokvideodownload.ui.theme.AppThemeMode
 import com.kyant.backdrop.Backdrop
+import com.kyant.backdrop.backdrops.rememberCanvasBackdrop
 import io.github.alexzhirkevich.cupertino.icons.CupertinoIcons
 import io.github.alexzhirkevich.cupertino.icons.filled.CircleLefthalfed
 import io.github.alexzhirkevich.cupertino.icons.outlined.Folder
@@ -90,7 +91,7 @@ fun SettingsUtilityCard(
             LiquidToggle(
                 checked = autoPasteEnabled,
                 onCheckedChange = onAutoPasteChange,
-                backdrop = backdrop
+                backdrop = rememberCanvasBackdrop { drawRect(cardBackground) }
             )
         }
     }

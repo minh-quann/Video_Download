@@ -70,11 +70,11 @@ data class LiquidMenuItem(
 )
 
 /**
- * Authentic Liquid Glass Options Menu (Menu ngữ cảnh dạng kính lỏng).
+ * Liquid Glass Options Menu.
  *
- * Implements Apple iOS 26 context menu aesthetics:
- * - 26dp rounded corner morphing glass capsule
- * - Deep optical lens refraction with chromatic aberration and edge highlights
+ * Implements context menu aesthetics:
+ * - Rounded corner morphing glass capsule
+ * - Deep optical lens refraction with edge highlights
  * - Fluid spring animation on open / close
  */
 @Composable

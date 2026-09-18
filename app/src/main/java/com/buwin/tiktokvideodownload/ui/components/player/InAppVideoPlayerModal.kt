@@ -765,7 +765,7 @@ fun InAppVideoPlayerModal(
                 )
             }
 
-            // Bottom Action Bar for Images: Authentic Apple Photos style bar
+            // Bottom Action Bar for Images: Photos style bar
             AnimatedVisibility(
                 visible = isImage && showControls && dismissProgress < 0.05f,
                 enter = fadeIn(),
@@ -843,6 +843,8 @@ fun InAppVideoPlayerModal(
                 confirmText = "Xóa tệp",
                 cancelText = "Hủy",
                 isDestructive = true,
+                backdrop = mediaBackdrop,
+                isDark = true,
                 onConfirm = {
                     showDeleteConfirmDialog = false
                     handleDelete()
