@@ -4,6 +4,8 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.EaseOut
 import androidx.compose.animation.core.spring
 import com.buwin.tiktokvideodownload.ui.theme.LocalIsDark
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Row
@@ -26,12 +28,16 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.changedToUpIgnoreConsumed
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.fastCoerceIn
+import androidx.compose.ui.util.fastFirstOrNull
 import androidx.compose.ui.util.fastRoundToInt
 import androidx.compose.ui.util.lerp
 import com.kyant.backdrop.Backdrop
@@ -78,6 +84,8 @@ fun LiquidBottomTabs(
         val tabWidth = with(density) {
             (constraints.maxWidth.toFloat() - 8f.dp.toPx()) / tabsCount
         }
+        // Horizontal padding in px for pill area (matches padding(horizontal = 4.dp))
+        val horizontalPaddingPx = with(density) { 4f.dp.toPx() }
 
         val offsetAnimation = remember { Animatable(0f) }
         val panelOffset by remember(density) {
@@ -234,8 +242,6 @@ fun LiquidBottomTabs(
                         if (isLtr) dampedDragAnimation.value * tabWidth + panelOffset
                         else size.width - (dampedDragAnimation.value + 1f) * tabWidth + panelOffset
                 }
-                .then(dampedDragAnimation.modifier)
-                .then(interactiveHighlight.gestureModifier)
                 .drawBackdrop(
                     backdrop = rememberCombinedBackdrop(backdrop, tabsBackdrop),
                     shape = { Capsule() },
@@ -281,6 +287,64 @@ fun LiquidBottomTabs(
                 )
                 .height(56f.dp)
                 .fillMaxWidth(1f / tabsCount)
+        )
+
+        // Touch overlay: captures touch anywhere on the tab bar,
+        // moves pill to finger position continuously, switches tab only on release
+        Box(
+            Modifier
+                .matchParentSize()
+                .pointerInput(tabWidth, isLtr, tabsCount) {
+                    awaitEachGesture {
+                        // Wait for initial touch
+                        val down = awaitFirstDown(requireUnconsumed = false)
+
+                        // Convert touch X to fractional tab value (continuous, not snapped)
+                        fun xToTabValue(x: Float): Float {
+                            val clampedX = (x - horizontalPaddingPx)
+                                .coerceIn(0f, tabWidth * tabsCount)
+                            val raw = if (isLtr) {
+                                clampedX / tabWidth - 0.5f
+                            } else {
+                                (tabWidth * tabsCount - clampedX) / tabWidth - 0.5f
+                            }
+                            return raw.fastCoerceIn(0f, (tabsCount - 1).toFloat())
+                        }
+
+                        // Start press animation and move pill to finger
+                        val initialTabValue = xToTabValue(down.position.x)
+                        dampedDragAnimation.press()
+                        dampedDragAnimation.updateValue(initialTabValue)
+
+                        // Track finger movement
+                        var pointerId = down.id
+                        while (true) {
+                            val event = awaitPointerEvent()
+                            val change = event.changes
+                                .fastFirstOrNull { it.id == pointerId }
+                                ?: break
+
+                            if (change.changedToUpIgnoreConsumed()) {
+                                // Finger released: snap to nearest tab and switch
+                                val finalValue = xToTabValue(change.position.x)
+                                val targetIndex = finalValue
+                                    .fastRoundToInt()
+                                    .fastCoerceIn(0, tabsCount - 1)
+                                dampedDragAnimation.animateToValue(targetIndex.toFloat())
+                                onTabSelected(targetIndex)
+                                dampedDragAnimation.release()
+                                break
+                            }
+
+                            // Finger is still down: move pill to current finger position
+                            if (change.positionChange() != Offset.Zero || change.pressed) {
+                                val tabValue = xToTabValue(change.position.x)
+                                dampedDragAnimation.updateValue(tabValue)
+                            }
+                            pointerId = change.id
+                        }
+                    }
+                }
         )
     }
 }
